@@ -8,22 +8,146 @@ import streamlit.components.v1 as components
 import re # For simple Q&A parsing
 import random
 import string
+import requests
+import io
+from datetime import datetime
+from office365.runtime.auth.authentication_context import AuthenticationContext
+from office365.sharepoint.client_context import ClientContext
+from office365.sharepoint.files.file import File
+import PyPDF2
+import tempfile
 
 warnings.filterwarnings('ignore')
 
 # ------------------ CONFIG ------------------
 st.set_page_config(page_title="Avathon Analytics Dashboard", page_icon="📊", layout="wide")
 
+# --- SharePoint Authentication ---
+def get_sharepoint_file(url, username=None, password=None):
+    """Get file content from SharePoint URL"""
+    if username is None and password is None:
+        if 'sharepoint_username' in st.session_state and 'sharepoint_password' in st.session_state:
+            username = st.session_state.sharepoint_username
+            password = st.session_state.sharepoint_password
+        else:
+            return None
+    repos = ""
+    try:
+        # Extract the SharePoint site and document info
+        # Parse the URL to get site URL and relative path
+        url_parts = url.split('/')
+        
+        # Get the site URL (includes domain and site name)
+        site_url = f"{url_parts[0]}//{url_parts[2]}"
+        
+        # Check if it's a sites URL
+        if '/sites/' in url:
+            site_name = url.split('/sites/')[1].split('/')[0]
+            site_url = f"{site_url}/sites/{site_name}"
+            
+            # Get the relative path (everything after the site name)
+            relative_url_parts = url.split(f"/sites/{site_name}/")[1]
+            relative_path = f"/sites/{site_name}/{relative_url_parts}"
+        else:
+            st.error(f"URL format not recognized: {url}")
+            st.info("URL should be in format: https://domain.sharepoint.com/sites/sitename/path/to/document")
+            return None
+            
+        # Create authentication context
+        auth_context = AuthenticationContext(site_url)
+        auth_context.acquire_token_for_user(username, password)
+        ctx = ClientContext(site_url, auth_context)
+        
+        # For debugging
+        st.info(f"Connecting to SharePoint site: {site_url}")
+        st.info(f"Accessing relative path: {relative_path}")
+        
+        # Try to access the file
+        response = File.open_binary(ctx, relative_path)
+        repos = response.content
+        st.info(f"Response: {response.content}")
+        return response.content
+            
+    except Exception as e:
+        st.error(f"Error accessing SharePoint file: {str(e)}")
+        # Add extra debugging info
+        if "Cannot get binary security token" in str(e):
+            st.warning("Authentication error. This may be due to incorrect credentials or modern authentication requirements.")
+            st.info("Try using an app password if your account uses multi-factor authentication.")
+            st.info(f"Response: {repos}")
+        return None
+
+# Function to read Excel file from SharePoint with sheet specification
+def read_excel_from_sharepoint(url, sheet_name=None):
+    # Get file content from SharePoint
+    file_content = get_sharepoint_file(url)
+    
+    if file_content is None:
+        # If authentication hasn't happened yet, return empty DataFrame
+        return pd.DataFrame()
+    
+    # Read Excel file
+    try:
+        if sheet_name:
+            return pd.read_excel(io.BytesIO(file_content), sheet_name=sheet_name)
+        else:
+            return pd.read_excel(io.BytesIO(file_content))
+    except Exception as e:
+        st.error(f"Error reading Excel file: {str(e)}")
+        return pd.DataFrame()
+
+# Function to get PDF from SharePoint
+def get_pdf_from_sharepoint(url):
+    file_content = get_sharepoint_file(url)
+    
+    if file_content is None:
+        return None
+    
+    return file_content
+
 # --- App Navigation ---
 st.sidebar.title("Navigation")
 page = st.sidebar.selectbox(
     "Go to",
-    ("Ops Review", "Tickets", "Finance", "Chat Analytics") # Added Chat Analytics
+    ("Ops Review", "Tickets", "Finance", "Chat Analytics")
 )
 
 # --- Initialize session state for chat ---
 if "messages" not in st.session_state:
     st.session_state.messages = []
+
+# --- SharePoint Authentication UI ---
+# Add collapsible authentication section in sidebar
+with st.sidebar.expander("SharePoint Authentication", expanded="sharepoint_username" not in st.session_state):
+    st.write("Enter SharePoint credentials to access data")
+    username = st.text_input("Username (email)", 
+                             value=st.session_state.get('sharepoint_username', ''),
+                             key="username_input")
+    password = st.text_input("Password", 
+                             value=st.session_state.get('sharepoint_password', ''),
+                             type="password",
+                             key="password_input")
+    
+    if st.button("Authenticate"):
+        # Store credentials in session state
+        st.session_state.sharepoint_username = username
+        st.session_state.sharepoint_password = password
+        st.success("Credentials saved for this session")
+    
+    # Help section for SharePoint URLs
+    st.markdown("### Finding Correct SharePoint URLs")
+    st.markdown("""
+    To find the correct document paths:
+    1. Navigate to your document in SharePoint
+    2. Click the "Copy link" button
+    3. Instead of using the sharing link, note the URL in your browser's address bar
+    4. Use the format: `https://domain.sharepoint.com/sites/sitename/Shared%20Documents/path/to/file.xlsx`
+    
+    If you're getting authentication errors:
+    - Make sure you're using your full email address
+    - Try an app password if you have multi-factor authentication enabled
+    - Ask your SharePoint administrator for the correct direct document paths
+    """)
 
 
 # ------------------ DATA SELECTION ------------------
@@ -34,13 +158,80 @@ def read_data_from_url(url):
         st.error(f"Error reading data from URL: {e}")
         return None
 
-data_source = st.radio("Choose data source:", ("Upload File", "Enter URL", "Use Default File"))
+# Define the SharePoint URLs for different data sources
+SHAREPOINT_URLS = {
+    "ops_review": {
+        "url": "https://sparkc.sharepoint.com/sites/ProfessionalServicesGroup/Shared%20Documents/General/OpsReviewData.xlsx",
+        "sheet": "Master"
+    },
+    "finance": {
+        "url": "https://sparkc.sharepoint.com/sites/Revenue-Services/Shared%20Documents/General/FinanceData.xlsx",
+        "sheet": None  # Default sheet
+    },
+    "tickets": {
+        "url": "https://sparkc.sharepoint.com/sites/ProfessionalServicesGroup/Shared%20Documents/General/TicketsData.xlsx",
+        "sheet": "Tickets"
+    },
+    "weekly_status_pdf": {
+        "url": "https://sparkc.sharepoint.com/sites/ProfessionalServicesGroup/Shared%20Documents/General/WeeklyStatus.pdf"
+    }
+}
+
+data_source = st.radio("Choose data source:", ("Use SharePoint Data", "Upload File", "Enter URL", "Use Default File"))
 # df needs to be accessible globally for the chat function if it's to query data
 # Initialize df as None or an empty DataFrame
 df = pd.DataFrame() # Initialize as empty DataFrame
 
 with st.container():
-    if data_source == "Upload File":
+    if data_source == "Use SharePoint Data":
+        if 'sharepoint_username' not in st.session_state or 'sharepoint_password' not in st.session_state:
+            st.warning("Please enter SharePoint credentials in the sidebar to access the data.")
+        else:
+            # Load data based on the selected page
+            if page == "Ops Review":
+                with st.spinner("Loading Ops Review data from SharePoint..."):
+                    df_loaded = read_excel_from_sharepoint(
+                        SHAREPOINT_URLS["ops_review"]["url"], 
+                        SHAREPOINT_URLS["ops_review"]["sheet"]
+                    )
+            elif page == "Finance":
+                with st.spinner("Loading Finance data from SharePoint..."):
+                    df_loaded = read_excel_from_sharepoint(
+                        SHAREPOINT_URLS["finance"]["url"],
+                        SHAREPOINT_URLS["finance"]["sheet"]
+                    )
+            elif page == "Tickets":
+                with st.spinner("Loading Tickets data from SharePoint..."):
+                    df_loaded = read_excel_from_sharepoint(
+                        SHAREPOINT_URLS["tickets"]["url"],
+                        SHAREPOINT_URLS["tickets"]["sheet"]
+                    )
+            else:
+                # Default to Ops Review data for Chat Analytics
+                with st.spinner("Loading data from SharePoint..."):
+                    df_loaded = read_excel_from_sharepoint(
+                        SHAREPOINT_URLS["ops_review"]["url"],
+                        SHAREPOINT_URLS["ops_review"]["sheet"]
+                    )
+            
+            if not df_loaded.empty:
+                df = df_loaded
+                st.success(f"Data loaded successfully from SharePoint for {page}!")
+            else:
+                st.error("Failed to load data from SharePoint.")
+                st.markdown("""
+                ### SharePoint Troubleshooting
+                
+                If you're having issues with SharePoint authentication:
+                
+                1. **Verify Credentials**: Double-check your username and password
+                2. **Check URL Format**: Make sure you're using document library URLs, not sharing links 
+                3. **File Permissions**: Ensure you have access permissions to the files
+                4. **Modern Authentication**: Try using an app password if your account uses 2FA
+                
+                You can also use one of the other data source options below:
+                """)
+    elif data_source == "Upload File":
         uploaded_file = st.file_uploader("Upload a file", type=["csv", "xlsx", "xls"])
         if uploaded_file:
             try:
@@ -86,11 +277,11 @@ df_filtered = df.copy()
 if not df_filtered.empty:
     df_filtered.columns = df_filtered.columns.str.strip().str.replace('ï»¿', '', regex=False)
 
-    for col in ["Contract Start Date", "Contract End Date"]:
+    for col in ["Contract Start Date", "Contract End Date", "Project Start Date"]:
         if col in df_filtered.columns:
             df_filtered[col] = pd.to_datetime(df_filtered[col], errors='coerce')
     # Ensure string columns for filters
-    for col in ["Exective", "Project Status (R/G/Y)", "Churn", "Customer Name", "Geography", "Application"]:
+    for col in ["Exective", "Project Status (R/G/Y)", "Churn", "Customer Name", "Geography", "Application", "Customer Health"]:
         if col in df_filtered.columns:
             df_filtered[col] = df_filtered[col].astype(str).str.strip().fillna("Unknown") # Fill NaN with 'Unknown' for str cols
     # Ensure numeric columns for calculations
@@ -117,18 +308,44 @@ if not df_filtered.empty:
         if status_filter:
             df_filtered = df_filtered[df_filtered["Project Status (R/G/Y)"].isin(status_filter)]
 
-    if "Contract Start Date" in df_filtered.columns and not df_filtered["Contract Start Date"].isnull().all():
-        min_date_val = df_filtered["Contract Start Date"].min()
-        max_date_val = df_filtered["Contract Start Date"].max()
-        st.sidebar.subheader("📌 Filter by Date Range")
-        if pd.isna(min_date_val) or pd.isna(max_date_val):
-            st.sidebar.warning("Not enough valid date data for range filter.")
+    # New Customer Health filter
+    if "Customer Health" in df_filtered.columns:
+        health_options = ["Green", "Yellow", "Red"]
+        available_health = [h for h in health_options if h in df_filtered["Customer Health"].unique()]
+        if available_health:
+            health_filter = st.sidebar.multiselect("Filter by Customer Health", options=available_health, default=[])
+            if health_filter:
+                df_filtered = df_filtered[df_filtered["Customer Health"].isin(health_filter)]
+    
+    # Add Project Start Date filter
+    if "Project Start Date" in df_filtered.columns and not df_filtered["Project Start Date"].isnull().all():
+        proj_min_date = df_filtered["Project Start Date"].min()
+        proj_max_date = df_filtered["Project Start Date"].max()
+        st.sidebar.subheader("📅 Filter by Project Start Date")
+        if pd.isna(proj_min_date) or pd.isna(proj_max_date):
+            st.sidebar.warning("Not enough valid project start date data for range filter.")
         else:
-            start_date = st.sidebar.date_input("Start Date", min_date_val, min_value=min_date_val, max_value=max_date_val)
-            end_date = st.sidebar.date_input("End Date", max_date_val, min_value=min_date_val, max_value=max_date_val)
+            proj_start_date = st.sidebar.date_input("Project Start From", proj_min_date, min_value=proj_min_date, max_value=proj_max_date)
+            proj_end_date = st.sidebar.date_input("Project Start To", proj_max_date, min_value=proj_min_date, max_value=proj_max_date)
+            if proj_start_date <= proj_end_date:
+                df_filtered = df_filtered[(df_filtered["Project Start Date"] >= pd.to_datetime(proj_start_date)) & 
+                                        (df_filtered["Project Start Date"] <= pd.to_datetime(proj_end_date))].copy()
+            else:
+                st.sidebar.error("End date must be on or after start date.")
+
+    # Contract date filter - Updated to use Contract End Date instead of Start Date
+    if "Contract End Date" in df_filtered.columns and not df_filtered["Contract End Date"].isnull().all():
+        min_date_val = df_filtered["Contract End Date"].min()
+        max_date_val = df_filtered["Contract End Date"].max()
+        st.sidebar.subheader("📌 Filter by Contract End Date")
+        if pd.isna(min_date_val) or pd.isna(max_date_val):
+            st.sidebar.warning("Not enough valid contract end date data for range filter.")
+        else:
+            start_date = st.sidebar.date_input("End Date From", min_date_val, min_value=min_date_val, max_value=max_date_val)
+            end_date = st.sidebar.date_input("End Date To", max_date_val, min_value=min_date_val, max_value=max_date_val)
             if start_date <= end_date:
-                df_filtered = df_filtered[(df_filtered["Contract Start Date"] >= pd.to_datetime(start_date)) & 
-                                          (df_filtered["Contract Start Date"] <= pd.to_datetime(end_date))].copy()
+                df_filtered = df_filtered[(df_filtered["Contract End Date"] >= pd.to_datetime(start_date)) & 
+                                          (df_filtered["Contract End Date"] <= pd.to_datetime(end_date))].copy()
             else:
                 st.sidebar.error("End date must be on or after start date.")
 
@@ -340,7 +557,7 @@ def analyze_data_for_chat(question, data):
         
         for pattern in project_status_patterns:
             match = re.search(pattern, question_lower)
-            if match:
+        if match:
                 status_color = match.group(1).lower().strip()
                 
                 # Find the status column
@@ -445,7 +662,7 @@ def analyze_data_for_chat(question, data):
         
         for pattern in entity_patterns:
             match = re.search(pattern, question_lower)
-            if match:
+        if match:
                 # Extract the person's name and other elements based on the pattern matches
                 groups = match.groups()
                 
@@ -1161,16 +1378,64 @@ if not current_display_df.empty:
         st.markdown("## 📈 Visualizations")
         
         if "Geography" in current_display_df.columns and "Customer Name" in current_display_df.columns:
-            geo_cust_counts = current_display_df.groupby(["Geography", "Customer Name"], observed=True).size().reset_index(name="Count") # MODIFIED: Use observed=True if Geography/Customer are categorical
+            # Get geography-customer data
+            geo_cust_counts = current_display_df.groupby(["Geography", "Customer Name"], observed=True).size().reset_index(name="Count")
             if not geo_cust_counts.empty:
-                # REMOVED: top_n_customers filter
+                # Fix for multiple customers - optimize visualization for scalability
+                
+                # Get top customers by count to limit visual clutter if there are many
+                top_customers = current_display_df["Customer Name"].value_counts().nlargest(15).index.tolist()
+                
+                # If filters are active and we have fewer than 15 customers, use all of them
+                selected_customers = cust_filter if 'cust_filter' in locals() and cust_filter else top_customers
+                
+                # Ensure we don't have too many or too few customers for visualization
+                if len(selected_customers) > 15:
+                    # Too many will be cluttered, so limit to top 15
+                    viz_customers = selected_customers[:15]
+                    st.info(f"Showing top 15 of {len(selected_customers)} selected customers in the visualization for clarity.")
+                elif len(selected_customers) == 0:
+                    # If no customers are explicitly selected, use top 10
+                    viz_customers = top_customers[:10]
+                else:
+                    # Use the selected customers as is
+                    viz_customers = selected_customers
+                
+                # Filter data for the visualization
+                filtered_geo_cust = geo_cust_counts[geo_cust_counts["Customer Name"].isin(viz_customers)]
+                
+                # Create the stacked bar chart with improved layout
                 fig_geo_cust_stacked = px.bar(
-                    geo_cust_counts, # MODIFIED: Using all customer counts
-                    x="Geography", y="Count", color="Customer Name",
-                    title="Project Count by Geography and Customer Name (All Customers)", 
+                    filtered_geo_cust,
+                    x="Geography", 
+                    y="Count", 
+                    color="Customer Name",
+                    title=f"Project Count by Geography and Customer ({len(viz_customers)} Customers)", 
                     barmode="stack"
                 )
-                fig_geo_cust_stacked.update_layout(height=500) # Increased height slightly
+                
+                # Improve layout for better readability with multiple customers
+                fig_geo_cust_stacked.update_layout(
+                    height=600,  # Taller chart for better visibility
+                    legend=dict(
+                        orientation="h",  # Horizontal legend
+                        yanchor="bottom",
+                        y=-0.3,  # Position below chart
+                        xanchor="center",
+                        x=0.5,
+                        title=None  # No legend title needed
+                    ),
+                    margin=dict(b=150)  # Add bottom margin for legend
+                )
+                
+                # If we have many customers, make the legend more compact
+                if len(viz_customers) > 8:
+                    fig_geo_cust_stacked.update_layout(
+                        legend=dict(
+                            font=dict(size=10)  # Smaller font for legend
+                        )
+                    )
+                
                 st.plotly_chart(fig_geo_cust_stacked, use_container_width=True)
             else: st.write("Not enough data for 'Project Count by Geography and Customer Name'.")
         else: st.write("Required columns ('Geography', 'Customer Name') not found.")
@@ -1221,18 +1486,19 @@ if not current_display_df.empty:
             else: st.write("Not enough data for 'Project Status Distribution' chart.")
         
         with viz_row3_col2:
-            if "Contract Start Date" in current_display_df.columns and not current_display_df["Contract Start Date"].isnull().all():
-                contract_trend = current_display_df.groupby(current_display_df["Contract Start Date"].dt.to_period("M")).size().reset_index(name="Contracts")
-                contract_trend["Contract Start Date"] = contract_trend["Contract Start Date"].dt.to_timestamp()
+            if "Contract End Date" in current_display_df.columns and not current_display_df["Contract End Date"].isnull().all():
+                contract_trend = current_display_df.groupby(current_display_df["Contract End Date"].dt.to_period("M")).size().reset_index(name="Contracts")
+                contract_trend["Contract End Date"] = contract_trend["Contract End Date"].dt.to_timestamp()
                 if not contract_trend.empty:
                     fig_contracts_time = px.line(
-                        contract_trend, x="Contract Start Date", y="Contracts",
-                        title="Contracts Started Over Time", markers=True, line_shape="spline"
+                        contract_trend, x="Contract End Date", y="Contracts",
+                        title="Contracts Ending Over Time", markers=True, line_shape="spline"
                     )
                     fig_contracts_time.update_layout(height=400)
                     st.plotly_chart(fig_contracts_time, use_container_width=True)
-                else: st.write("Not enough data for 'Contracts Over Time' chart.")
-            else: st.write("Column 'Contract Start Date' not found or empty for 'Contracts Over Time' chart.")
+                else:
+                    st.write("Not enough data for 'Contracts Ending Over Time' chart.")
+            else: st.write("Column 'Contract End Date' not found or empty for 'Contracts Ending Over Time' chart.")
         
         st.markdown("## 📝 Detailed Data Summary")
         # ... (Summary text code as before, using current_display_df for calculations)
@@ -1267,79 +1533,327 @@ if not current_display_df.empty:
         st.markdown("---"); st.markdown("## 📄 Embedded Documents")
         st.markdown("### SharePoint Presentation")
         components.iframe(src="https://sparkc.sharepoint.com/:p:/s/ProfessionalServicesGroup/EV7F-1-nHr5BkrR6-MbTuPYBSISt1dQ9BdkuX3MUYm94NA?e=JOkhCh", height=450, width=1000, scrolling=True)
+        
         st.markdown("### Weekly Project Status PDF")
-        def show_pdf(pdf_file_path):
-            script_dir = os.path.dirname(__file__)
-            abs_pdf_file_path = os.path.join(script_dir, pdf_file_path)
-            if not os.path.exists(abs_pdf_file_path): abs_pdf_file_path = os.path.abspath(pdf_file_path)
-            if os.path.exists(abs_pdf_file_path):
-                with open(abs_pdf_file_path, "rb") as f: base64_pdf = base64.b64encode(f.read()).decode('utf-8')
-                st.markdown(f'<iframe src="data:application/pdf;base64,{base64_pdf}" width="100%" height="650" type="application/pdf" style="border: 1px solid #ddd;"></iframe>', unsafe_allow_html=True)
-            else: st.error(f"PDF file '{pdf_file_path}' not found. Looked for: '{abs_pdf_file_path}'")
-        show_pdf("Weekly Project Status 7.05.2025.pdf")
+        # Show PDF from SharePoint
+        def show_sharepoint_pdf(url):
+            if 'sharepoint_username' not in st.session_state or 'sharepoint_password' not in st.session_state:
+                st.warning("Please authenticate with SharePoint using the sidebar to view the PDF.")
+                return
+                
+            with st.spinner("Loading PDF from SharePoint..."):
+                pdf_content = get_pdf_from_sharepoint(url)
+                
+                if pdf_content:
+                    # Create a temp file to hold the PDF
+                    with tempfile.NamedTemporaryFile(delete=False, suffix='.pdf') as tmp_file:
+                        tmp_file.write(pdf_content)
+                        tmp_path = tmp_file.name
+                    
+                    # Read and display the PDF
+                    try:
+                        with open(tmp_path, "rb") as f:
+                            base64_pdf = base64.b64encode(f.read()).decode('utf-8')
+                        st.markdown(f'<iframe src="data:application/pdf;base64,{base64_pdf}" width="100%" height="650" type="application/pdf" style="border: 1px solid #ddd;"></iframe>', unsafe_allow_html=True)
+                        
+                        # Also try to parse some info from the PDF
+                        with open(tmp_path, "rb") as f:
+                            try:
+                                pdf_reader = PyPDF2.PdfReader(f)
+                                num_pages = len(pdf_reader.pages)
+                                first_page_text = pdf_reader.pages[0].extract_text()
+                                
+                                # Display basic PDF info
+                                with st.expander("PDF Information"):
+                                    st.write(f"Number of pages: {num_pages}")
+                                    st.write("First page preview:")
+                                    st.text(first_page_text[:500] + "...")
+                            except Exception as e:
+                                st.error(f"Could not parse PDF content: {str(e)}")
+                        
+                        # Clean up the temp file
+                        os.unlink(tmp_path)
+                    except Exception as e:
+                        st.error(f"Error displaying PDF: {str(e)}")
+                        if os.path.exists(tmp_path):
+                            os.unlink(tmp_path)
+                else:
+                    st.error("Failed to retrieve PDF from SharePoint.")
+        
+        # Use the function to display SharePoint PDF
+        show_sharepoint_pdf(SHAREPOINT_URLS["weekly_status_pdf"]["url"])
+        
+        # Legacy code for local PDF (as fallback)
+        if 'sharepoint_username' not in st.session_state or 'sharepoint_password' not in st.session_state:
+            st.warning("SharePoint authentication not provided. Falling back to local PDF if available.")
+            # Original local PDF display function
+            def show_local_pdf(pdf_file_path):
+                script_dir = os.path.dirname(__file__)
+                abs_pdf_file_path = os.path.join(script_dir, pdf_file_path)
+                if not os.path.exists(abs_pdf_file_path): abs_pdf_file_path = os.path.abspath(pdf_file_path)
+                if os.path.exists(abs_pdf_file_path):
+                    with open(abs_pdf_file_path, "rb") as f: base64_pdf = base64.b64encode(f.read()).decode('utf-8')
+                    st.markdown(f'<iframe src="data:application/pdf;base64,{base64_pdf}" width="100%" height="650" type="application/pdf" style="border: 1px solid #ddd;"></iframe>', unsafe_allow_html=True)
+                else: st.error(f"PDF file '{pdf_file_path}' not found. Looked for: '{abs_pdf_file_path}'")
+            
+            show_local_pdf("Weekly Project Status 7.05.2025.pdf")
 
     elif page == "Tickets":
         st.title("🎫 Tickets Dashboard")
-        # ... (Tickets page content as before, using current_display_df)
         st.markdown("Insights into support tickets and resolutions.")
-        st.info("Ticket specific data and visualizations will go here. Using general data for example.")
+        
         if not current_display_df.empty:
-            st.markdown("### Example Ticket Data Visualizations (using general data)")
-            kpi_tcol1, kpi_tcol2 = st.columns(2)
-            kpi_tcol1.metric("Total Customers (from data)", current_display_df["Customer Name"].nunique() if "Customer Name" in current_display_df else "N/A")
-            kpi_tcol2.metric("Avg. Revenue (from data)", f"${current_display_df['Revenue'].mean():,.0f}" if "Revenue" in current_display_df and current_display_df['Revenue'].notna().any() else "N/A")
+            # Key metrics
+            st.markdown("### 📊 Ticket Metrics")
+            ticket_kpi_row = st.columns(3)
+            
+            # Count of tickets if status column exists
+            total_tickets = current_display_df.shape[0]
+            ticket_kpi_row[0].metric("Total Tickets", f"{total_tickets:,}")
+            
+            # Count by status if available
+            if "Ticket Status" in current_display_df.columns:
+                open_tickets = current_display_df[current_display_df["Ticket Status"].str.lower() == "open"].shape[0]
+                closed_tickets = current_display_df[current_display_df["Ticket Status"].str.lower() == "closed"].shape[0]
+                ticket_kpi_row[1].metric("Open Tickets", f"{open_tickets:,}")
+                ticket_kpi_row[2].metric("Closed Tickets", f"{closed_tickets:,}")
+            else:
+                # If no status column exists, show other metrics
+                customers_with_tickets = current_display_df["Customer Name"].nunique() if "Customer Name" in current_display_df else 0
+                ticket_kpi_row[1].metric("Customers with Tickets", f"{customers_with_tickets:,}")
+                
+                avg_revenue = current_display_df["Revenue"].mean() if "Revenue" in current_display_df and current_display_df['Revenue'].notna().any() else 0
+                ticket_kpi_row[2].metric("Avg. Revenue", f"${avg_revenue:,.0f}")
+            
+            st.markdown("---")
+            
+            # Tickets per Customer visualization
+            if "Customer Name" in current_display_df.columns:
+                st.subheader("Tickets per Customer")
+                
+                # Check if Ticket Status column exists
+                if "Ticket Status" in current_display_df.columns:
+                    # Create a pivot table of tickets by customer and status
+                    ticket_pivot = pd.pivot_table(
+                        current_display_df,
+                        index="Customer Name",
+                        columns="Ticket Status",
+                        aggfunc="size",
+                        fill_value=0
+                    ).reset_index()
+                    
+                    # Get top 10 customers by total tickets
+                    ticket_counts = current_display_df["Customer Name"].value_counts().reset_index()
+                    ticket_counts.columns = ["Customer Name", "Total Tickets"]
+                    top_customers = ticket_counts.sort_values("Total Tickets", ascending=False).head(10)["Customer Name"].tolist()
+                    
+                    # Filter pivot table to top customers
+                    filtered_pivot = ticket_pivot[ticket_pivot["Customer Name"].isin(top_customers)]
+                    
+                    # Melt the pivot table for plotting
+                    plot_data = pd.melt(
+                        filtered_pivot,
+                        id_vars=["Customer Name"],
+                        var_name="Ticket Status",
+                        value_name="Count"
+                    )
+                    
+                    # Create a grouped bar chart
+                    fig_tickets_by_customer = px.bar(
+                        plot_data,
+                        x="Customer Name",
+                        y="Count",
+                        color="Ticket Status",
+                        title="Tickets by Customer and Status (Top 10)",
+                        barmode="group"
+                    )
+                    fig_tickets_by_customer.update_layout(height=500)
+                    st.plotly_chart(fig_tickets_by_customer, use_container_width=True)
+                    
+                    # Heat map of tickets by status
+                    st.subheader("Ticket Status Heat Map")
+                    # Create a correlation matrix-like display
+                    heat_data = filtered_pivot.set_index("Customer Name")
+                    
+                    fig_heatmap = px.imshow(
+                        heat_data,
+                        labels=dict(x="Ticket Status", y="Customer", color="Count"),
+                        title="Ticket Status Heat Map by Customer",
+                        color_continuous_scale="YlOrRd"
+                    )
+                    fig_heatmap.update_layout(height=500)
+                    st.plotly_chart(fig_heatmap, use_container_width=True)
+                else:
+                    # Simple count visualization if no status column
+                    ticket_counts = current_display_df["Customer Name"].value_counts().reset_index()
+                    ticket_counts.columns = ["Customer Name", "Count"]
+                    ticket_counts = ticket_counts.sort_values("Count", ascending=False).head(10)
+                    
+                    fig_tickets_by_customer = px.bar(
+                        ticket_counts,
+                        x="Customer Name",
+                        y="Count",
+                        title="Tickets by Customer (Top 10)",
+                        color="Count",
+                        color_continuous_scale="Viridis"
+                    )
+                    fig_tickets_by_customer.update_layout(height=500)
+                    st.plotly_chart(fig_tickets_by_customer, use_container_width=True)
+            
+            # Example: Tickets by Application if the column exists
             if "Application" in current_display_df.columns and not current_display_df["Application"].empty:
+                st.subheader("Tickets by Application")
                 app_counts = current_display_df["Application"].value_counts().reset_index()
                 app_counts.columns = ['Application', 'Count']
-                fig_tickets_app = px.bar(app_counts, x="Application", y="Count", title="Projects by Application (Example)")
+                fig_tickets_app = px.bar(
+                    app_counts, 
+                    x="Application", 
+                    y="Count", 
+                    title="Tickets by Application",
+                    color="Count",
+                    color_continuous_scale="Blues"
+                )
                 st.plotly_chart(fig_tickets_app, use_container_width=True)
+            
+            # Ticket Response Time analysis if dates available
+            date_columns = [col for col in current_display_df.columns if 'date' in col.lower()]
+            if len(date_columns) >= 2:  # Need at least 2 date columns for response time
+                st.subheader("Ticket Response Time Analysis")
+                st.info("This is a placeholder for response time analysis. With actual ticket data containing created and resolved dates, you can calculate average response times.")
+                
+                # Placeholder graph
+                st.write("Response Time Chart Placeholder")
+                
             else:
-                st.write("Column 'Application' not found in the current dataset for an example.")
-        else:
-            st.warning("No data loaded/matches filters to display ticket examples.")
+                st.warning("No data loaded/matches filters to display ticket information.")
 
 
     elif page == "Finance":
         st.title("💰 Finance Dashboard")
-        # ... (Finance page content as before, using current_display_df)
         st.markdown("Financial performance and revenue analysis.")
-        st.info("Finance specific data and visualizations will go here. Using general data for example.")
+        
         if not current_display_df.empty:
-            st.markdown("### Example Finance Visualizations (using general data)")
-            fin_kpi1, fin_kpi2 = st.columns(2)
-            total_revenue_fin = current_display_df["Revenue"].sum() if "Revenue" in current_display_df else 0
-            fin_kpi1.metric("Total Revenue (from data)", f"${total_revenue_fin:,.0f}")
+            # Add metric cards showing key KPIs
+            st.markdown("### 📊 Key Financial KPIs")
+            fin_kpi_row1 = st.columns(3)
+            
+            # GRR - Gross Retention Rate
+            total_grr = current_display_df["GRR"].sum() if "GRR" in current_display_df.columns else 0
+            fin_kpi_row1[0].metric(
+                "Gross Retention Rate (GRR)", 
+                f"${total_grr:,.0f}",
+                delta=f"{(total_grr/current_display_df.shape[0]):,.2f} per project" if current_display_df.shape[0] > 0 else None
+            )
+            
+            # NRR - Net Retention Rate
+            total_nrr = current_display_df["NRR"].sum() if "NRR" in current_display_df.columns else 0
+            fin_kpi_row1[1].metric(
+                "Net Retention Rate (NRR)", 
+                f"${total_nrr:,.0f}",
+                delta=f"{(total_nrr/current_display_df.shape[0]):,.2f} per project" if current_display_df.shape[0] > 0 else None
+            )
+            
+            # Revenue
+            total_revenue_fin = current_display_df["Revenue"].sum() if "Revenue" in current_display_df.columns else 0
+            fin_kpi_row1[2].metric(
+                "Total Revenue", 
+                f"${total_revenue_fin:,.0f}",
+                delta=f"{(total_revenue_fin/current_display_df.shape[0]):,.2f} per project" if current_display_df.shape[0] > 0 else None
+            )
+            
+            # Additional KPIs
+            fin_kpi_row2 = st.columns(3)
+            
+            # Active Projects
             active_projects_fin = 0
             if "Project Status (R/G/Y)" in current_display_df.columns:
-                 active_projects_fin = current_display_df[current_display_df["Project Status (R/G/Y)"].astype(str).str.title().isin(["Green", "Amber"])].shape[0]
+                active_projects_fin = current_display_df[current_display_df["Project Status (R/G/Y)"].astype(str).str.title().isin(["Green", "Amber", "G", "Y", "Yellow"])].shape[0]
             else: active_projects_fin = current_display_df.shape[0] 
-            fin_kpi2.metric("Active/Ongoing Projects", f"{active_projects_fin:,}")
-
-            if "Revenue" in current_display_df.columns and "Customer Name" in current_display_df.columns and not current_display_df["Customer Name"].empty:
-                revenue_df_cust = current_display_df.groupby("Customer Name", observed=True)["Revenue"].sum().nlargest(10).reset_index()
-                if not revenue_df_cust.empty:
-                    fig_finance_revenue = px.bar(
-                        revenue_df_cust, x="Customer Name", y="Revenue",
-                        title="Top 10 Customers by Revenue (Example)"
-                    )
-                    fig_finance_revenue.update_traces(text=revenue_df_cust["Revenue"].apply(lambda x: f"${x:,.0f}"), textposition="outside")
-                    fig_finance_revenue.update_layout(height=450)
-                    st.plotly_chart(fig_finance_revenue, use_container_width=True)
-                else: st.write("Not enough data for 'Top 10 Customers by Revenue'.")
-            else: st.write("Required columns ('Revenue', 'Customer Name') not found for 'Top 10 Customers by Revenue'.")
             
-            if "Churn" in current_display_df.columns and not current_display_df["Churn"].empty:
-                current_display_df['Churn_status_display'] = pd.to_numeric(current_display_df['Churn'], errors='coerce').fillna(0).apply(lambda x: 'Churned' if x == 1 else 'Active')
-                churn_summary = current_display_df['Churn_status_display'].value_counts().reset_index()
-                churn_summary.columns = ['Churn Status', 'Count']
-                fig_churn_pie = px.pie(
-                    churn_summary, values="Count", names="Churn Status",
-                    title="Churned vs Active Projects (Example)", hole=0.4
-                )
-                st.plotly_chart(fig_churn_pie, use_container_width=True)
-            else: st.write("Column 'Churn' not found for churn analysis.")
+            fin_kpi_row2[0].metric("Active Projects", f"{active_projects_fin:,}")
+            
+            # Services Revenue
+            services_revenue = current_display_df["Services Revenue"].sum() if "Services Revenue" in current_display_df.columns else 0
+            fin_kpi_row2[1].metric("Services Revenue", f"${services_revenue:,.0f}")
+            
+            # Total Customers
+            total_customers = current_display_df["Customer Name"].nunique() if "Customer Name" in current_display_df.columns else 0
+            fin_kpi_row2[2].metric("Total Customers", f"{total_customers:,}")
+            
+            st.markdown("---")
+            st.markdown("### 📈 Revenue Analysis")
+            
+            # Revenue Trends Over Time
+            if "Contract End Date" in current_display_df.columns and "Revenue" in current_display_df.columns and not current_display_df["Contract End Date"].isnull().all():
+                st.subheader("Revenue Trends Over Time")
+                # Group by month and sum revenue
+                revenue_trend = current_display_df.groupby(current_display_df["Contract End Date"].dt.to_period("M"))["Revenue"].sum().reset_index()
+                revenue_trend["Contract End Date"] = revenue_trend["Contract End Date"].dt.to_timestamp()
+                
+                if not revenue_trend.empty:
+                    fig_revenue_trend = px.line(
+                        revenue_trend, 
+                        x="Contract End Date", 
+                        y="Revenue",
+                        title="Revenue by Contract End Date",
+                        markers=True
+                    )
+                    fig_revenue_trend.update_layout(height=450)
+                    st.plotly_chart(fig_revenue_trend, use_container_width=True)
+                else:
+                    st.write("Not enough data for Revenue Trends visualization.")
+            
+            # Customer-wise Revenue Distribution
+            if "Revenue" in current_display_df.columns and "Customer Name" in current_display_df.columns and not current_display_df["Customer Name"].empty:
+                st.subheader("Customer Revenue Distribution")
+                revenue_by_customer = current_display_df.groupby("Customer Name", observed=True)["Revenue"].sum().reset_index()
+                revenue_by_customer = revenue_by_customer.sort_values("Revenue", ascending=False).head(10)
+                
+                if not revenue_by_customer.empty:
+                    fig_customer_revenue = px.bar(
+                        revenue_by_customer, 
+                        x="Customer Name", 
+                        y="Revenue",
+                        title="Top 10 Customers by Revenue",
+                        color="Revenue",
+                        color_continuous_scale="Viridis"
+                    )
+                    fig_customer_revenue.update_traces(
+                        text=revenue_by_customer["Revenue"].apply(lambda x: f"${x:,.0f}"), 
+                        textposition="outside"
+                    )
+                    fig_customer_revenue.update_layout(height=450)
+                    st.plotly_chart(fig_customer_revenue, use_container_width=True)
+                else:
+                    st.write("Not enough data for Customer Revenue Distribution.")
+                    
+            # Revenue Distribution by Status
+            if "Revenue" in current_display_df.columns and "Project Status (R/G/Y)" in current_display_df.columns:
+                st.subheader("Revenue by Project Status")
+                revenue_by_status = current_display_df.groupby("Project Status (R/G/Y)", observed=True)["Revenue"].sum().reset_index()
+                
+                if not revenue_by_status.empty:
+                    # Status color map
+                    status_color_map = {
+                        "Red": "#d62728", "R": "#d62728", "Amber": "#ff7f0e", 
+                        "Yellow": "#ffdd57", "Y": "#ff7f0e", "Green": "#2ca02c", 
+                        "G": "#2ca02c", "Blank": "#cccccc", "<NA>": "#cccccc", "Unknown": "#cccccc"
+                    }
+                    
+                    fig_status_revenue = px.pie(
+                        revenue_by_status, 
+                        names="Project Status (R/G/Y)", 
+                        values="Revenue",
+                        title="Revenue Distribution by Project Status",
+                        color="Project Status (R/G/Y)",
+                        color_discrete_map=status_color_map
+                    )
+                    fig_status_revenue.update_traces(textinfo="percent+label")
+                    st.plotly_chart(fig_status_revenue, use_container_width=True)
+                else:
+                    st.write("Not enough data for Revenue by Project Status visualization.")
         else:
-            st.warning("No data loaded/matches filters to display finance examples.")
+            st.warning("No data loaded/matches filters to display finance information.")
     
     elif page == "Chat Analytics":
         st.title("💬 Enhanced Chat Analytics")
