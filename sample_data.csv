@@ -1,0 +1,11 @@
+Customer Name,Exective,Project Status (R/G/Y),Customer Health,Geography,Revenue,NRR,GRR,Contract Start Date,Contract End Date,Project Start Date,Churn,Total Usecases/Module,Services Revenue,Application
+Acme Corp,John Smith,Green,Green,North America,125000,110,105,2023-01-15,2024-01-15,2023-01-30,0,3,25000,ML Platform
+TechGiant,Sarah Johnson,Yellow,Yellow,Europe,87500,95,90,2023-02-10,2024-02-10,2023-02-25,0,2,17500,Analytics
+GlobalTech,David Lee,Green,Green,Asia,250000,105,100,2023-03-05,2024-03-05,2023-03-20,0,5,50000,ML Platform
+Innovate Inc,Emma Davis,Red,Red,North America,65000,85,80,2023-04-20,2024-04-20,2023-05-05,1,1,15000,IoT
+Megacorp,Michael Brown,Green,Green,Europe,175000,115,110,2023-05-12,2024-05-12,2023-05-27,0,4,35000,Analytics
+StartupXYZ,Jessica Wilson,Yellow,Yellow,Asia,92000,100,95,2023-06-25,2024-06-25,2023-07-10,0,2,18000,ML Platform
+DataSystems,Robert Thomas,Green,Green,North America,145000,108,103,2023-07-18,2024-07-18,2023-08-03,0,3,29000,IoT
+CloudNine,Jennifer Garcia,Red,Red,Europe,78000,92,88,2023-08-30,2024-08-30,2023-09-15,1,1,16000,Analytics
+AIVentures,William Martinez,Green,Green,Asia,215000,112,107,2023-09-14,2024-09-14,2023-09-29,0,4,43000,ML Platform
+SmartSolutions,Elizabeth Taylor,Yellow,Yellow,North America,105000,98,93,2023-10-05,2024-10-05,2023-10-20,0,2,21000,IoT
