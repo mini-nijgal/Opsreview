@@ -16,6 +16,7 @@ from office365.sharepoint.client_context import ClientContext
 from office365.sharepoint.files.file import File
 import PyPDF2
 import tempfile
+import json
 
 warnings.filterwarnings('ignore')
 
@@ -105,6 +106,66 @@ def get_pdf_from_sharepoint(url):
     
     return file_content
 
+# Function to fetch tickets from HubSpot
+def fetch_hubspot_tickets(api_key):
+    """Fetch tickets from HubSpot API"""
+    try:
+        headers = {
+            'Authorization': f'Bearer {api_key}',
+            'Content-Type': 'application/json'
+        }
+        
+        # HubSpot API endpoint for tickets
+        url = "https://api.hubapi.com/crm/v3/objects/tickets"
+        
+        # Parameters to get ticket properties
+        params = {
+            'properties': [
+                'subject', 'content', 'hs_ticket_priority', 'hs_pipeline_stage',
+                'hs_ticket_category', 'source_type', 'createdate', 'hs_lastmodifieddate',
+                'hubspot_owner_id', 'hs_resolution'
+            ],
+            'limit': 100  # Adjust as needed
+        }
+        
+        response = requests.get(url, headers=headers, params=params)
+        
+        if response.status_code == 200:
+            data = response.json()
+            tickets = []
+            
+            for ticket in data.get('results', []):
+                properties = ticket.get('properties', {})
+                tickets.append({
+                    'Ticket ID': ticket.get('id'),
+                    'Subject': properties.get('subject', ''),
+                    'Content': properties.get('content', ''),
+                    'Priority': properties.get('hs_ticket_priority', ''),
+                    'Status': properties.get('hs_pipeline_stage', ''),
+                    'Category': properties.get('hs_ticket_category', ''),
+                    'Source': properties.get('source_type', ''),
+                    'Created Date': properties.get('createdate', ''),
+                    'Last Modified': properties.get('hs_lastmodifieddate', ''),
+                    'Owner ID': properties.get('hubspot_owner_id', ''),
+                    'Resolution': properties.get('hs_resolution', '')
+                })
+            
+            df = pd.DataFrame(tickets)
+            
+            # Convert date columns
+            for date_col in ['Created Date', 'Last Modified']:
+                if date_col in df.columns:
+                    df[date_col] = pd.to_datetime(df[date_col], errors='coerce')
+            
+            return df
+        else:
+            st.error(f"Failed to fetch HubSpot data: {response.status_code}")
+            return pd.DataFrame()
+            
+    except Exception as e:
+        st.error(f"Error fetching HubSpot tickets: {str(e)}")
+        return pd.DataFrame()
+
 # --- App Navigation ---
 st.sidebar.title("Navigation")
 page = st.sidebar.selectbox(
@@ -141,6 +202,29 @@ with st.sidebar.expander("SharePoint Authentication (Optional)", expanded=False)
     SharePoint authentication is only needed if you switch back to SharePoint data sources.
     """)
 
+# --- HubSpot Configuration ---
+with st.sidebar.expander("HubSpot Configuration (For Tickets)", expanded=False):
+    st.write("Configure HubSpot API access for tickets data")
+    hubspot_api_key = st.text_input(
+        "HubSpot API Key", 
+        value=st.session_state.get('hubspot_api_key', ''),
+        type="password",
+        key="hubspot_key_input",
+        help="Get your API key from HubSpot Settings > Integrations > API key"
+    )
+    
+    if st.button("Save HubSpot Key"):
+        st.session_state.hubspot_api_key = hubspot_api_key
+        st.success("HubSpot API key saved for this session")
+    
+    st.markdown("### How to get HubSpot API Key:")
+    st.markdown("""
+    1. Go to your HubSpot account
+    2. Navigate to Settings (gear icon)
+    3. Go to Integrations > API key
+    4. Create or copy your API key
+    """)
+
 
 # ------------------ DATA SELECTION ------------------
 def read_data_from_url(url):
@@ -162,17 +246,20 @@ def read_data_from_url(url):
         return None
 
 # Define the data sources for different views
+GOOGLE_SHEET_ID = "1Nxvj1LRWYIw3cQcX2Qz9RJmvv17JlCe-V8G2tmvqHfE"
+BASE_GOOGLE_SHEETS_URL = f"https://docs.google.com/spreadsheets/d/{GOOGLE_SHEET_ID}/export?format=csv"
+
 DATA_SOURCES = {
     "ops_review": {
-        "url": "https://raw.githubusercontent.com/sparkcognition/sample-data/main/ops_review_data.csv",
-        "sheet": "Data1"
+        "url": f"{BASE_GOOGLE_SHEETS_URL}&sheet=Master",
+        "sheet": "Master"
     },
     "finance": {
-        "url": "https://raw.githubusercontent.com/sparkcognition/sample-data/main/finance_data.csv", 
-        "sheet": "Revenue"
+        "url": f"{BASE_GOOGLE_SHEETS_URL}&sheet=Finance", 
+        "sheet": "Finance"
     },
     "tickets": {
-        "url": "https://raw.githubusercontent.com/sparkcognition/sample-data/main/tickets_data.csv",
+        "url": f"{BASE_GOOGLE_SHEETS_URL}&sheet=Tickets",
         "sheet": "Tickets"
     },
     "weekly_status_pdf": {
@@ -208,9 +295,10 @@ with st.container():
                             for date_col in ["Contract Start Date", "Contract End Date", "Project Start Date"]:
                                 if date_col in df.columns:
                                     df[date_col] = pd.to_datetime(df[date_col], errors='coerce')
-                            st.success(f"✅ Ops Review data loaded successfully from Google Sheets!")
+                            st.success(f"✅ Ops Review data loaded successfully from Google Sheets 'Master' tab!")
+                            st.info("🔗 Data source: [Master Tab - Google Sheets](https://docs.google.com/spreadsheets/d/1Nxvj1LRWYIw3cQcX2Qz9RJmvv17JlCe-V8G2tmvqHfE/edit#gid=0)")
                         else:
-                            st.warning("⚠️ Google Sheets data doesn't have Ops Review structure. Loading local Data1.csv instead...")
+                            st.warning("⚠️ Google Sheets Master tab doesn't have expected structure. Loading local Data1.csv instead...")
                             # Fallback to local Data1.csv
                             try:
                                 data_file_path = os.path.join(os.path.dirname(__file__), "Data1.csv")
@@ -247,34 +335,65 @@ with st.container():
                         for date_col in ["Contract Start Date", "Contract End Date", "Project Start Date"]:
                             if date_col in df.columns:
                                 df[date_col] = pd.to_datetime(df[date_col], errors='coerce')
-                        st.success(f"Data loaded successfully for {page}!")
+                        st.success(f"✅ {page} data loaded successfully from Google Sheets 'Finance' tab!")
+                        st.info("🔗 Data source: [Finance Tab - Google Sheets](https://docs.google.com/spreadsheets/d/1Nxvj1LRWYIw3cQcX2Qz9RJmvv17JlCe-V8G2tmvqHfE/edit#gid=Finance)")
                     else:
-                        st.error("Empty data returned from Google Sheets.")
+                        st.error("Empty data returned from Google Sheets Finance tab.")
                 except Exception as e:
                     st.error(f"Error loading data from Google Sheets: {e}")
                     st.info("Try using the 'Use Default File' option if external data sources are not available.")
         elif page == "Tickets":
-            with st.spinner("Loading Tickets data from Google Sheets..."):
-                tickets_url = DATA_SOURCES["tickets"]["url"]
-                try:
-                    # Try different encodings
+            # Try to load from HubSpot first
+            if 'hubspot_api_key' in st.session_state and st.session_state.hubspot_api_key:
+                with st.spinner("Loading Tickets data from HubSpot..."):
                     try:
-                        df_loaded = pd.read_csv(tickets_url)
-                    except UnicodeDecodeError:
-                        df_loaded = pd.read_csv(tickets_url, encoding='latin1')
-                    
-                    if not df_loaded.empty:
-                        df = df_loaded
-                        # Convert date columns if they exist
-                        for date_col in ["Contract Start Date", "Contract End Date", "Project Start Date"]:
-                            if date_col in df.columns:
-                                df[date_col] = pd.to_datetime(df[date_col], errors='coerce')
-                        st.success(f"Data loaded successfully for {page}!")
-                    else:
-                        st.error("Empty data returned from Google Sheets.")
-                except Exception as e:
-                    st.error(f"Error loading data from Google Sheets: {e}")
-                    st.info("Try using the 'Use Default File' option if external data sources are not available.")
+                        df_loaded = fetch_hubspot_tickets(st.session_state.hubspot_api_key)
+                        
+                        if not df_loaded.empty:
+                            df = df_loaded
+                            st.success(f"✅ {len(df)} tickets loaded successfully from HubSpot!")
+                            st.info("🔗 Data source: [HubSpot Tickets](https://app.hubspot.com/contacts/20074161/objects/0-5/views/all/list)")
+                        else:
+                            st.warning("No tickets found in HubSpot. Check your API key and permissions.")
+                            # Fallback to Google Sheets
+                            st.info("Falling back to Google Sheets data...")
+                            tickets_url = DATA_SOURCES["tickets"]["url"]
+                            try:
+                                df_loaded = pd.read_csv(tickets_url)
+                                if not df_loaded.empty:
+                                    df = df_loaded
+                                    st.success("Fallback data loaded from Google Sheets")
+                            except:
+                                st.error("Both HubSpot and Google Sheets failed")
+                                
+                    except Exception as e:
+                        st.error(f"Error loading data from HubSpot: {e}")
+                        st.info("Please check your HubSpot API key in the sidebar")
+            else:
+                # No HubSpot key provided, use Google Sheets
+                with st.spinner("Loading Tickets data from Google Sheets..."):
+                    st.info("💡 Configure HubSpot API key in sidebar to load real ticket data")
+                    tickets_url = DATA_SOURCES["tickets"]["url"]
+                    try:
+                        # Try different encodings
+                        try:
+                            df_loaded = pd.read_csv(tickets_url)
+                        except UnicodeDecodeError:
+                            df_loaded = pd.read_csv(tickets_url, encoding='latin1')
+                        
+                        if not df_loaded.empty:
+                            df = df_loaded
+                            # Convert date columns if they exist
+                            for date_col in ["Contract Start Date", "Contract End Date", "Project Start Date"]:
+                                if date_col in df.columns:
+                                    df[date_col] = pd.to_datetime(df[date_col], errors='coerce')
+                            st.success(f"✅ {page} data loaded from Google Sheets 'Tickets' tab!")
+                            st.info("🔗 Data source: [Tickets Tab - Google Sheets](https://docs.google.com/spreadsheets/d/1Nxvj1LRWYIw3cQcX2Qz9RJmvv17JlCe-V8G2tmvqHfE/edit#gid=Tickets)")
+                        else:
+                            st.error("Empty data returned from Google Sheets Tickets tab.")
+                    except Exception as e:
+                        st.error(f"Error loading data from Google Sheets: {e}")
+                        st.info("Try using the 'Use Default File' option if external data sources are not available.")
         else:
             # Default to Ops Review data for Chat Analytics
             with st.spinner("Loading data from Google Sheets..."):
@@ -2197,107 +2316,157 @@ if not current_display_df.empty:
         st.markdown("---")
         
         if not current_display_df.empty:
-            # Key metrics - Remove Revenue information
+            # Key metrics for HubSpot tickets
             st.markdown("### 📊 Ticket Metrics")
-            ticket_kpi_row = st.columns(3)
+            ticket_kpi_row = st.columns(4)
             
-            # Count of tickets if status column exists
+            # Total tickets
             total_tickets = current_display_df.shape[0]
             ticket_kpi_row[0].metric("Total Tickets", f"{total_tickets:,}")
             
-            # Count by status if available
-            if "Ticket Status" in current_display_df.columns:
-                open_tickets = current_display_df[current_display_df["Ticket Status"].str.lower() == "open"].shape[0]
-                closed_tickets = current_display_df[current_display_df["Ticket Status"].str.lower() == "closed"].shape[0]
+            # Status-based metrics (HubSpot uses "Status" column)
+            status_col = None
+            for col in ["Status", "Ticket Status", "hs_pipeline_stage"]:
+                if col in current_display_df.columns:
+                    status_col = col
+                    break
+            
+            if status_col and not current_display_df[status_col].empty:
+                status_counts = current_display_df[status_col].value_counts()
+                
+                # Open/New tickets
+                open_statuses = ["Open", "New", "In Progress", "Waiting", "new", "open", "in progress"]
+                open_tickets = current_display_df[current_display_df[status_col].isin(open_statuses)].shape[0]
                 ticket_kpi_row[1].metric("Open Tickets", f"{open_tickets:,}")
+                
+                # Closed tickets
+                closed_statuses = ["Closed", "Resolved", "Solved", "closed", "resolved", "solved"]
+                closed_tickets = current_display_df[current_display_df[status_col].isin(closed_statuses)].shape[0]
                 ticket_kpi_row[2].metric("Closed Tickets", f"{closed_tickets:,}")
             else:
-                # If no status column exists, show other non-revenue metrics
-                customers_with_tickets = current_display_df["Customer Name"].nunique() if "Customer Name" in current_display_df else 0
-                ticket_kpi_row[1].metric("Customers with Tickets", f"{customers_with_tickets:,}")
-                
-                # Metric related to ticket count instead of revenue
-                if "Ticket Priority" in current_display_df.columns:
-                    high_priority = current_display_df[current_display_df["Ticket Priority"].str.lower() == "high"].shape[0] if "Ticket Priority" in current_display_df else 0
-                    ticket_kpi_row[2].metric("High Priority Tickets", f"{high_priority:,}")
+                ticket_kpi_row[1].metric("Open Tickets", "N/A")
+                ticket_kpi_row[2].metric("Closed Tickets", "N/A")
+            
+            # Priority-based metrics (HubSpot uses "Priority" column)
+            priority_col = None
+            for col in ["Priority", "Ticket Priority", "hs_ticket_priority"]:
+                if col in current_display_df.columns:
+                    priority_col = col
+                    break
+            
+            if priority_col and not current_display_df[priority_col].empty:
+                high_priority_values = ["High", "Critical", "Urgent", "high", "critical", "urgent"]
+                high_priority = current_display_df[current_display_df[priority_col].isin(high_priority_values)].shape[0]
+                ticket_kpi_row[3].metric("High Priority", f"{high_priority:,}")
+            else:
+                # Show recent tickets instead
+                if "Created Date" in current_display_df.columns:
+                    recent_tickets = current_display_df[current_display_df["Created Date"] > pd.Timestamp.now() - pd.Timedelta(days=7)].shape[0]
+                    ticket_kpi_row[3].metric("Last 7 Days", f"{recent_tickets:,}")
                 else:
-                    # Default to showing a generic ticket-related metric
-                    ticket_kpi_row[2].metric("Avg. Tickets per Customer", f"{total_tickets/max(1, customers_with_tickets):.1f}")
+                    ticket_kpi_row[3].metric("Categories", f"{current_display_df['Category'].nunique() if 'Category' in current_display_df.columns else 'N/A'}")
             
             st.markdown("---")
             
-            # Tickets per Customer visualization
-            if "Customer Name" in current_display_df.columns:
-                st.subheader("Tickets per Customer")
+            # HubSpot-specific visualizations
+            viz_col1, viz_col2 = st.columns(2)
+            
+            with viz_col1:
+                # Ticket Status Distribution
+                status_col = None
+                for col in ["Status", "Ticket Status", "hs_pipeline_stage"]:
+                    if col in current_display_df.columns:
+                        status_col = col
+                        break
                 
-                # Check if Ticket Status column exists
-                if "Ticket Status" in current_display_df.columns:
-                    # Create a pivot table of tickets by customer and status
-                    ticket_pivot = pd.pivot_table(
-                        current_display_df,
-                        index="Customer Name",
-                        columns="Ticket Status",
-                        aggfunc="size",
-                        fill_value=0
-                    ).reset_index()
+                if status_col and not current_display_df[status_col].empty:
+                    st.subheader("Ticket Status Distribution")
+                    status_counts = current_display_df[status_col].value_counts().reset_index()
+                    status_counts.columns = ["Status", "Count"]
                     
-                    # Get top 10 customers by total tickets
-                    ticket_counts = current_display_df["Customer Name"].value_counts().reset_index()
-                    ticket_counts.columns = ["Customer Name", "Total Tickets"]
-                    top_customers = ticket_counts.sort_values("Total Tickets", ascending=False).head(10)["Customer Name"].tolist()
+                    # Create color mapping for status
+                    status_color_map = {
+                        "Open": "#ff7f0e", "New": "#2ca02c", "In Progress": "#1f77b4",
+                        "Closed": "#d62728", "Resolved": "#9467bd", "Waiting": "#8c564b"
+                    }
                     
-                    # Filter pivot table to top customers
-                    filtered_pivot = ticket_pivot[ticket_pivot["Customer Name"].isin(top_customers)]
-                    
-                    # Melt the pivot table for plotting
-                    plot_data = pd.melt(
-                        filtered_pivot,
-                        id_vars=["Customer Name"],
-                        var_name="Ticket Status",
-                        value_name="Count"
+                    fig_status_pie = px.pie(
+                        status_counts,
+                        values="Count",
+                        names="Status",
+                        title="Ticket Status Distribution",
+                        color="Status",
+                        color_discrete_map=status_color_map
                     )
+                    fig_status_pie.update_traces(textinfo="percent+label+value")
+                    st.plotly_chart(fig_status_pie, use_container_width=True)
+            
+            with viz_col2:
+                # Ticket Priority Distribution
+                priority_col = None
+                for col in ["Priority", "Ticket Priority", "hs_ticket_priority"]:
+                    if col in current_display_df.columns:
+                        priority_col = col
+                        break
+                
+                if priority_col and not current_display_df[priority_col].empty:
+                    st.subheader("Ticket Priority Distribution")
+                    priority_counts = current_display_df[priority_col].value_counts().reset_index()
+                    priority_counts.columns = ["Priority", "Count"]
                     
-                    # Create a grouped bar chart
-                    fig_tickets_by_customer = px.bar(
-                        plot_data,
-                        x="Customer Name",
-                        y="Count",
-                        color="Ticket Status",
-                        title="Tickets by Customer and Status (Top 10)",
-                        barmode="group"
+                    # Create color mapping for priority
+                    priority_color_map = {
+                        "High": "#d62728", "Critical": "#ff0000", "Urgent": "#ff4500",
+                        "Medium": "#ff7f0e", "Normal": "#2ca02c", "Low": "#1f77b4"
+                    }
+                    
+                    fig_priority_donut = px.pie(
+                        priority_counts,
+                        values="Count",
+                        names="Priority",
+                        title="Ticket Priority Distribution",
+                        hole=0.4,
+                        color="Priority",
+                        color_discrete_map=priority_color_map
                     )
-                    fig_tickets_by_customer.update_layout(height=500)
-                    st.plotly_chart(fig_tickets_by_customer, use_container_width=True)
-                    
-                    # Heat map of tickets by status
-                    st.subheader("Ticket Status Heat Map")
-                    # Create a correlation matrix-like display
-                    heat_data = filtered_pivot.set_index("Customer Name")
-                    
-                    fig_heatmap = px.imshow(
-                        heat_data,
-                        labels=dict(x="Ticket Status", y="Customer", color="Count"),
-                        title="Ticket Status Heat Map by Customer",
-                        color_continuous_scale="YlOrRd"
-                    )
-                    fig_heatmap.update_layout(height=500)
-                    st.plotly_chart(fig_heatmap, use_container_width=True)
-                else:
-                    # Simple count visualization if no status column
-                    ticket_counts = current_display_df["Customer Name"].value_counts().reset_index()
-                    ticket_counts.columns = ["Customer Name", "Count"]
-                    ticket_counts = ticket_counts.sort_values("Count", ascending=False).head(10)
-                    
-                    fig_tickets_by_customer = px.bar(
-                        ticket_counts,
-                        x="Customer Name",
-                        y="Count",
-                        title="Tickets by Customer (Top 10)",
-                        color="Count",
-                        color_continuous_scale="Viridis"
-                    )
-                    fig_tickets_by_customer.update_layout(height=500)
-                    st.plotly_chart(fig_tickets_by_customer, use_container_width=True)
+                    fig_priority_donut.update_traces(textinfo="percent+label+value")
+                    st.plotly_chart(fig_priority_donut, use_container_width=True)
+            
+            # Tickets Over Time
+            if "Created Date" in current_display_df.columns:
+                st.subheader("Tickets Created Over Time")
+                
+                # Group by date
+                tickets_by_date = current_display_df.copy()
+                tickets_by_date["Created Date"] = pd.to_datetime(tickets_by_date["Created Date"]).dt.date
+                daily_tickets = tickets_by_date.groupby("Created Date").size().reset_index(name="Count")
+                
+                fig_timeline = px.line(
+                    daily_tickets,
+                    x="Created Date",
+                    y="Count",
+                    title="Daily Ticket Creation Trend",
+                    markers=True
+                )
+                fig_timeline.update_layout(height=400)
+                st.plotly_chart(fig_timeline, use_container_width=True)
+            
+            # Tickets by Category
+            if "Category" in current_display_df.columns and not current_display_df["Category"].empty:
+                st.subheader("Tickets by Category")
+                category_counts = current_display_df["Category"].value_counts().reset_index()
+                category_counts.columns = ["Category", "Count"]
+                
+                fig_categories = px.bar(
+                    category_counts,
+                    x="Category",
+                    y="Count",
+                    title="Tickets by Category",
+                    color="Count",
+                    color_continuous_scale="Blues"
+                )
+                fig_categories.update_layout(height=400)
+                st.plotly_chart(fig_categories, use_container_width=True)
             
             # Example: Tickets by Application if the column exists
             if "Application" in current_display_df.columns and not current_display_df["Application"].empty:
