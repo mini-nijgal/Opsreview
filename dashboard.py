@@ -263,7 +263,7 @@ DATA_SOURCES = {
         "sheet": "Tickets"
     },
     "weekly_status_pdf": {
-        "url": "https://github.com/sparkcognition/sample-data/raw/main/weekly_status.pdf"
+        "url": "https://github.com/mini-nijgal/Opsreview/raw/main/Weekly%20Project%20Status%207.05.2025.pdf"
     }
 }
 
