@@ -1,65 +1,45 @@
-﻿Customer Name,Logo Name,Contract Start Date,Contract End Date,Industry Sector,Application,Geography,Owner,Contracted ARR,Recognized ARR,Services Revenue,Status (R/G/Y),Last QBR,Last Leadership Touchpoint,Notes,Hosted at
-AFRL,US Air Force,Customer 44460,Customer 45803,Government & Defense,APM,NAM,Art,"$1,020,000 "," $1,020,000 ",,G,,,,
-AIRBUS SAS,Airbus,12/15/2023,2/28/2026,Commercial Aerospace,SC&M,EU,Bhavana,"$767,340 "," $767,340 ",,G,,,"2/25/2024: Mid Feb, Florent (Airbus SME) provided a general overview of how Airbus utilizes the platform and highlighted the value they derive from it. Halliburton posed several questions during the discussion, all of which were addressed to their satisfaction.",On Prem
-,,,,,,,,,,,,,,,
-,,,,,,,,,,,,,,"Sanjay Mathur (Avathon) is working closely with Florent to resolve any pending issues. Latest update on this,",
-,,,,,,,,,,,,,,"We were able to verify with Florent that the latest problem is indeed that sockets are not being closed by monitoring the process stats. Sanjay found a very simple IQL query using the Distribute op that could reproduce the problem on the multi node cluster and could see the issue without having to wait for the system to run for days.  Sanjay checked in the fix (which was only 2 lines) last Friday after verifying that it works on  his VM. Once verified by Airbus, need to send Florent the updated docker image for saq since none of the other components of neon are modified and thus don't need to be rebuilt.",
-,,,,,,,,,,,,,,,
-Aramco Trading Company,Saudi Aramco,01/01/24,12/31/2026,Transportation & Logistics,SC&M,MEA,TK,"$372,400 "," $372,400 ",,R,,,Demo of ATO scheduled for 05/07 for ATC's business users and management;,Azure
-,,,,,,,,,,,,,,ATC users to be migrated to ATO prod post successful demo,
-BAE Systems,BAE Systems,7/25/2024,7/24/2029,Commercial Aerospace,APM,NAM,Bhavana,"$2,650,000 "," $1,000,000 "," $500,000 ",Y,,Onsite meeting the week of Apr 7-10 ,GE90 in production. Model 2.7 released with further improvements to the supporting events linking. Currently focusing on metric calculations.May meeting with the BAE Leadership.,GCP
-,,,,,,,,,,,,,,Changed status from Red to Yellow.,
-Baylor School,Baylor School,10/26/2023,04/03/27,Education,Computer Vision,NAM,Bhavana,"$17,881 "," $17,881 ",,G,,,"Customer is happy, they have action items to identify potential additional cameras and use cases they'd like to add but not a priority as they're short staffed at the moment. Last spoke to their leader April-15",
-,,,,,,,,,,,,,,Was previously yellow and went green after successful weapons detection,
-Britiannia,,,12/31/2025,Warehouse,Computer Vision,APAC,Dinesh,"$69,107 ", $- ," $44,643 ",G,,,Deployment,
-Core9 Ventures (Pvt.) Ltd.,Core9 Ventures (Pvt.) Ltd.,07/05/23,7/30/2030,Industrial Manufacturing,Computer Vision,APAC,Dinesh,"$4,680 "," $4,680 ", $- ,Y,,Weekly touchbase with Avi and TK,Nestle issues resolution updated to Core 9 who will discuss with Nestle and finalize the week of Feb 24th,
-,,,,,,,,,,,,,,CHT Issues resolution updated.  2 use cases require model re-training.  Rest of the use cases resolution updated.  Core 9 to take it up with CHT the week of Feb 24th,
-Cory Environmental,Cory Environmental,11/29/2022,11/28/2025,Environmental & Waste Services,Computer Vision,NAM,Dinesh,"$128,099 "," $128,099 ",,G,,19-Feb,Support,
-CP Plus,CP Plus,7/19/2024,7/18/2028,Retail,Computer Vision,APAC,Dinesh,"$2,800,000 ", $- ,,G,,Weekly touchbase between Avi & Anup,McDonalds POC in progress and Reliance Enterprise POC is going to start.  Pavan is assigned as a single point of contact for CPPlus accounts from the Services team,
-Datema Mobility AB,,,12/31/2024,Technology,Silverline,APAC,Dinesh,"$17,514 ",," $201,598 ",G,,Apr 22nd,Received ok with new pricing for 2025.  Open to start discussion for 2026 rates in Q4,
-Finnsementti Oy,Finnsementti Oy,3/29/2024,4/30/2026,Industrial Manufacturing,Computer Vision,EU,Dinesh,"$10,000 "," $10,000 ",,G,,,TK working with Tony to set up contact with customer,
-Flipkart/JCI (Assert),Flipkart,8/25/2022,8/24/2025,Retail,Computer Vision,APAC,Dinesh,"$7,095 "," $7,095 ",,R,,,"Support, not renewing",
-GE Power,GE,05/01/24,4/30/2025,Renewables,APM,APAC,Dinesh,"$50,000 "," $50,000 ", $- ,Y,,,GE Singapore issues with false alerts.  TK / Mark had a call with Ken Sim.  Expecting an update back from their team the week fo 03/10,
-Greif,Greif,9/30/2022,12/31/2024,Transportation & Logistics,Computer Vision,NAM,Bhavana,"$15,000 "," $15,000 ",,y,,,Greif focal has left the company (Annamalai Natarajan). We are waiting for the Greif program team to inform us of the focal to work with.  Wwe see intermittent issues with the GPU  core connectivitiy that is leading to missed alerts. Our team has a vendor that can ship a new GPU to Greif once Greif's focal point is appointed. Next milestone is to set up training in person for business users and work towards contract extension/expansion led by Avathon Sales.,
-Halliburton,Halliburton,04/06/24,05/10/27,Oil & Gas,Computer Vision,NAM,Bhavana,"$18,135 "," $18,135 ",,G,,Apr 10-11,orderd the Edge server for 1st Frac Crew.  HAL ordered the edge server for Sites 2 & 3.  Dylan confirmed the update to move forward with all 3 sites due to the lead time for getting the servers.  Krishnan will be in Austin week of 05/05 to configure servers ,
-Heineken Ireland Sales Limited,Heineken,01/01/22,12/31/2024,Food & Beverage,Computer Vision,EU,Dinesh,"$40,000 "," $15,000 ",,G,,,Order form received for renewal,
-HPCL ,HPCL,6/16/2021,6/15/2026,Oil & Gas,Computer Vision,APAC,Dinesh,"$338,530 "," $338,530 ",,G,,Feb 19th,Support,
-Invenergy Services LLC,Invenergy ,12/22/2023,12/31/2024,Renewables,APM,NAM,Bhavana,,,,C,,,Churned,
-Katz Hillel ,Katz Hillel ,6/14/2024,7/31/2025,Education,Computer Vision,NAM,Bhavana,"$36,100 "," $36,100 ",,R,,Mar 25 2025,"Weekly touchbases, so far persistant issues with camera connection, weapons is the major critical issue here- works sometimes and no alerts other times-critical",
-,,,,,,,,,,,,,,4/22- weapons test unsuccessful .  Changed from Yellow to Red (because weapons failed),
-Larsen & Toubro Limited,Larsen & Toubro Limited,,12/31/2025,Other,Computer Vision,APAC,Dinesh,"$170,000 ", $- , $- ,G,,,Deployment started. Need to finalize rollout plan,
-Liberty Hill ISD,Liberty Hill ISD,1/18/2024,1/17/2025,Education,Computer Vision,NAM,TK,"$104,900 "," $104,900 ",,C,,,Churned,
-National Grid Grain LNG Ltd.,National Grid,3/15/2024,3/14/2025,Oil & Gas,APM,EU,TK,"$354,541 "," $354,541 ",,C,,,Churned,
-National Grid Renewable,National Grid,9/17/2024,3/31/2027,Renewables,APM,NAM,Bhavana,"$704,025 "," $580,140 ",,G,,TK met Scott,"All phase 3 sites fully delivered, small bugs/data issues ongoing process, phase 4 sites upcoming",AWS
-,,,,,,,,,,,,,,"Opportunity for upsesll May 15- AI assistant, financial module",
-Novo Nordisk,Novo Nordisk,01/01/22,12/31/2025,Healthcare,Computer Vision,APAC,Dinesh,"$30,000 "," $12,000 ",15000,G,,,Renewal in progress,
-Ørsted,Ørsted,8/15/2023,8/15/2026,Renewables,APM,NAM,Bhavana,"$873,524 "," $873,524 ",,G,,F2F June 2025 (Sandeep/Bhavana/Kumar/Mariam),Orsted 100% deployment pushed out from end of April to mid May due to data issues;,AWS
-,,,,,,,,,,,,,,4 sites migrated and 7 remain;,
-,,,,,,,,,,,,,,SoW (for data migration and for additional work completed for 11mile solar site) to be sent to Orsted ,
-Pecos Barstow Toyah ISD,Pecos Barstow Toyah ISD,01/12/24,6/28/2028,Education,Computer Vision,NAM,Bhavana,"$266,466 "," $266,466 ",,G,,4/16/2025 (Samantha + Gunja face to face),"Met with customer 4/16, system is online and working as expected, additional user training needed to provide customer confidence. Pending a new director of safety on their side",
-,,,,,,,,,,,,,,Next steps customer owned,
-PepsiCo,,,01/10/25,Food & Beverage,Computer Vision,NAM,Bhavana,$- , $- ," $50,000 ",Y,,,- Both sites deployed,
-,,,,,,,,,,,,,,- WORKING through config settings at Cerrillos to ensure ALL use cases are performing as expected,
-,,,,,,,,,,,,,,- Awaiting Pepsi kickoff of showcase video collection,
-,,,,,,,,,,,,,,- Confirmation needed on exec readout date,
-,,,,,,,,,,,,,,"- two site pilot ends in mid may, limited funding to extend pilots",
-,,,,,,,,,,,,,,- Mexico site interested at 50k,
-,,,,,,,,,,,,,,- Sales/product working on ROI calculator,
-Primergy Solar Management LLC,Primergy Solar,07/01/24,9/30/2027,Renewables,APM,NAM,Bhavana,"$312,523 "," $312,523 ",,Y,,Planning F2F June-2025 (Bhavana/Mariam),All 3 sites in post-deployment,AWS
-,,,,,,,,,,,,,,Working closely with customer to close open tickets and resolve issues related to UI updates and data issues.,
-Reliance bp Mobility Limited (JIO),Reliance BP,01/01/22,12/31/2026,Oil & Gas,Computer Vision,APAC,Dinesh,"$122,265 "," $122,265 ",,G,,,"Renewed,  Updated list of POs extending the contract are not in Dinh's spreadsheet version.  Dinesh will work with Nayanika/Tameem to get the contract and update. ",
-"Renew Energy Maintenance, LLC",ReNew,10/26/2023,11/15/2026,Renewables,APM,APAC,Dinesh,"$61,620 "," $61,620 ",,G,,,,AWS
-Secureworks Inc,Secureworks Inc,06/01/21,5/30/2025,Cybersecurity,EPP,APAC,TK,"$73,219 "," $73,219 ",,R,,,Working with AVI to finalise the details,
-Shell,,,3/31/2026,Oil & Gas,,,Bhavana,$- , $- ," $3,700,000 ",G,,,,
-St. Theresa Catholic School,St. Theresa Catholic School,11/15/2023,07/04/28,Education,Computer Vision,NAM,Bhavana,"$38,472 "," $38,472 ",,G,,Feb 5th meeting onsite with Shawn Dennis.  ,Happy- no issues,
-Tokio Marine,Grupo Tom Brasil,05/01/24,4/30/2027,Events & Entertainment,Computer Vision,LATAM,TK,"$25,000 "," $25,000 ",,R,,,Contract signed a year ago but no implementation done.  Had a dsicussion with Marcio  He is following up with customer,
-TRL KROSAKI REFRACTORIES LIMITED,TRL KROSAKI REFRACTORIES LIMITED,6/23/2022,02/01/25,Industrial Manufacturing,Computer Vision,APAC,Dinesh,"$1,799 "," $1,799 ", $- ,Y,,,Renewal Proposal submitted to TRL.  It is with procurement now,
-UBS,UBS,09/01/24,8/30/2025,Renewables,APM,NAM,Bhavana,"$286,940 "," $286,940 ",,G,,Feb 12 - Bhavana met Jay,All sites delivered,AWS
-,,,,,,,,,,,,,,continual service work- realized availability calcs ongoing,
-,,,,,,,,,,,,,,pending signatures on CO for additional services revenue,
-UPL,UPL,08/01/23,12/31/2024,Chemicals,Computer Vision,APAC,Dinesh,"$1,782 "," $1,782 ",,Y,,,Dinesh working on renewal.  Need ETA,
-Valley Queen Cheese,Valley Queen Cheese,5/15/2024,7/30/2026,Food & Beverage,Computer Vision,NAM,Bhavana,"$39,725 "," $39,725 ", $- ,C,,,Churned,
-VISMA/Postnord,VISMA/Postnord,,12/31/2024,Transportation & Logistics,Silverline,APAC,Dinesh,"$254,466 ", $- ," $308,150 ",G,,,"Yet to be renewed, TK, Dinesh, Prakhar working it",
-Vistra,Vistra,01/01/23,12/31/2025,Renewables,Computer Vision,NAM,TK,"$124,380 "," $124,380 ",,C,,,Churned,
-Woolworths,,,03/04/25,Warehouse,Computer Vision,APAC,Dinesh,"$13,220 ", $- , $- ,Y,,,TK & Niyati having weekly Sync with Woolworths,
-Xerox Ltd,Xerox,07/01/22,6/30/2025,Technology,Computer Vision,APAC,Dinesh,"$150,000 "," $150,000 ",,G,,,Support,
+﻿Customer Name,Logo Name,Contract Start Date,Contract End Date,Industry Sector,Application,Geography,Owner, Current ARR ,  Recognized ARR  , Services Revenue 
+AIRBUS SAS,Airbus,15/12/23,28/02/26,Commercial Aerospace,SC&M,EU,Bhavana ,  -    ,  -    ,  $-  
+AFRL,US Air Force,21/09/21,26/05/25,Government & Defense,APM,NAM,," $7,67,340.00 "," $7,67,340.00 ",  $-  
+Aramco Trading Company,Saudi Aramco,01/01/24,31/12/26,Transportation & Logistics,SC&M,MEA,Bhavana ," $18,00,000.00 "," $18,00,000.00 ",  $-  
+BAE Systems,BAE Systems,25/07/24,24/07/29,Commercial Aerospace,APM,NAM,Bhavana," $3,72,400.00 "," $3,72,400.00 ",  $-  
+Baylor School,Baylor School,26/10/23,03/04/27,Education,Computer Vision,NAM,Bhavana," $26,50,000.00 "," $10,00,000.00 ",  $-  
+Britannia Limited,Britannia Limited,,31/12/25,Warehouse,Computer Vision,APAC,Dinesh," $17,881.33 "," $17,881.33 ",  $-  
+Core9 Ventures (Pvt.) Ltd.,Core9 Ventures (Pvt.) Ltd.,05/07/23,30/07/30,Industrial Manufacturing,Computer Vision,APAC,TK," $69,107.00 ",  -    ,  $-  
+Cory Environmental,Cory Environmental,29/11/22,28/11/25,Environmental & Waste Services,Computer Vision,NAM,TK," $4,680.00 "," $4,680.00 ",  $-  
+CP Plus,CP Plus,19/07/24,18/07/28,Retail,Computer Vision,APAC,TK," $1,28,099.00 "," $1,28,099.00 ",  $-  
+Datema Mobility AB,,,31/12/25,Technology,Silverline,APAC,Dinesh," $10,00,000.00 ",  -    ,  $-  
+Finnsementti Oy,Finnsementti Oy,29/03/24,30/04/26,Industrial Manufacturing,Computer Vision,EU,TK," $1,50,000.00 "," $1,50,000.00 ",  $-  
+Flipkart/JCI (Assert),Flipkart,25/08/22,24/08/25,Retail,Computer Vision,APAC,Dinesh," $10,000.00 "," $10,000.00 ",  $-  
+GE Power,GE,01/05/24,30/04/25,Renewables,APM,APAC,TK," $7,095.00 "," $7,095.00 ",  $-  
+Greif,Greif,30/09/22,31/12/24,Transportation & Logistics,Computer Vision,NAM,Bhavana ,  -    ," $50,000.00 ",  $-  
+Halliburton,Halliburton,06/04/24,10/05/27,Oil & Gas,Computer Vision,NAM,Bhavana,  -    ,  -    ,  $-  
+Heineken Ireland Sales Limited,Heineken,01/01/25,31/12/26,Food & Beverage,Computer Vision,EU,Dinesh," $72,540.00 "," $18,135.00 ",  $-  
+HPCL ,HPCL,16/06/21,15/06/26,Oil & Gas,Computer Vision,APAC,Dinesh," $40,000.00 "," $40,000.00 ",  $-  
+Invenergy Services LLC,Invenergy ,22/12/23,31/12/24,Renewables,APM,NAM,Bhavana," $3,38,530.03 "," $3,38,530.03 ",  $-  
+Katz Hillel ,Katz Hillel ,14/06/24,31/07/25,Education,Computer Vision,NAM,Bhavana,  -    ,  -    ,  $-  
+Larsen & Toubro Limited,Larsen & Toubro Limited,,31/12/25,Other,Computer Vision,APAC,Dinesh," $36,100.00 "," $36,100.00 ",  $-  
+Liberty Hill ISD,Liberty Hill ISD,18/01/24,17/01/25,Education,Computer Vision,NAM,," $1,70,000.00 ",  -    ,  $-  
+Saint Gobain,Saint Gobain,01/03/24,28/02/25,Industrial Manufacturing,Computer Vision,APAC,,  -    ,  -    ,  $-  
+National Grid Grain LNG Ltd.,National Grid,15/03/24,14/03/25,Oil & Gas,APM,EU,,  -    ,  -    ,  $-  
+National Grid Renewable,National Grid,17/09/24,31/03/27,Renewables,APM,NAM,Bhavana,  -    ,  -    ,  $-  
+Novo Nordisk,Novo Nordisk,01/01/22,31/12/25,Healthcare,Computer Vision,APAC,Dinesh," $9,53,775.00 "," $7,04,025.00 ",  $-  
+Ørsted,Ørsted,15/08/23,15/08/26,Renewables,APM,NAM,Bhavana ," $30,000.00 "," $30,000.00 ",  $-  
+Pecos Barstow Toyah ISD,Pecos Barstow Toyah ISD,12/01/24,28/06/28,Education,Computer Vision,NAM,Bhavana," $8,73,524.03 "," $8,73,524.03 ","  $8,063  "
+PepsiCo,,,10/01/25,Food & Beverage,Computer Vision,NAM,Bhavana," $2,66,466.00 "," $2,66,466.00 ",  $-  
+Primergy Solar Management LLC,Primergy Solar,01/07/24,30/09/27,Renewables,APM,NAM,Bhavana,  -    ,  -    ,"  $(3,866) "
+Reliance BP Mobility Limited,Reliance BP,01/01/22,31/12/25,Oil & Gas,Computer Vision,APAC,Dinesh," $3,12,523.00 "," $3,12,523.00 ",  $-  
+Reliance bp Mobility Limited (JIO),Reliance BP,01/01/22,31/12/26,Oil & Gas,Computer Vision,APAC,Dinesh," $61,333.00 "," $61,333.00 ","  $5,986  "
+"Renew Energy Maintenance, LLC",ReNew,26/10/23,15/11/26,Renewables,APM,APAC,Bhavana ," $26,660.00 "," $26,660.00 ",  $-  
+Secureworks Inc,Secureworks Inc,01/06/21,30/05/25,Cybersecurity,EPP,APAC,TK," $61,620.00 "," $61,620.00 ",  $-  
+"Shell International Exploration and Production, Inc.","Shell International Exploration and Production, Inc.",,31/03/26,Oil & Gas,,NAM,Bhavana ," $73,218.69 "," $73,218.69 ",  $-  
+St. Theresa Catholic School,St. Theresa Catholic School,15/11/23,04/07/28,Education,Computer Vision,NAM,Bhavana ," $77,00,000.00 "," $47,00,000.00 ","  $4,12,219  "
+Tokio Marine,Grupo Tom Brasil,01/05/24,30/04/27,Events & Entertainment,Computer Vision,LATAM,Bhavana ," $38,472.00 "," $38,472.00 ",  $-  
+TRL KROSAKI REFRACTORIES LIMITED,TRL KROSAKI REFRACTORIES LIMITED,23/06/22,01/02/25,Industrial Manufacturing,Computer Vision,APAC,Dinesh," $25,000.00 "," $25,000.00 ",  $-  
+UBS,UBS,01/09/24,30/08/25,Renewables,APM,NAM,Dinesh," $1,798.94 "," $1,798.94 ",  $-  
+UPL Limited,UPL,01/08/23,31/08/25,Chemicals,Computer Vision,APAC,Dinesh," $2,86,940.00 "," $2,86,940.00 ",  $-  
+Valley Queen Cheese,Valley Queen Cheese,15/05/24,30/07/26,Food & Beverage,Computer Vision,NAM,Bhavana," $15,671.96 "," $15,671.96 ",  $-  
+VISMA/Postnord,VISMA/Postnord,,31/12/25,Transportation & Logistics,Silverline,APAC,Dinesh," $39,725.00 "," $39,725.00 ",  $-  
+Vistra,Vistra,01/01/23,31/12/25,Renewables,Computer Vision,NAM,TK," $1,83,040.00 "," $1,83,040.00 ",  $-  
+Woolworths,Woolworths,,04/03/25,Warehouse,Computer Vision,APAC,Dinesh," $1,39,080.00 "," $1,39,080.00 ",  $-  
+Xerox Ltd,Xerox,01/07/22,30/06/25,Technology,Computer Vision,APAC,Dinesh,  -    ,  -    ,  $-  
