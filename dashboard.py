@@ -1,5 +1,6 @@
 import streamlit as st
 import plotly.express as px
+import plotly.graph_objects as go
 import pandas as pd
 import warnings
 import base64
@@ -22,6 +23,8 @@ warnings.filterwarnings('ignore')
 
 # ------------------ CONFIG ------------------
 st.set_page_config(page_title="Avathon Analytics Dashboard", page_icon="📊", layout="wide")
+
+# Logo will be displayed in sidebar above navigation
 
 # --- SharePoint Authentication ---
 def get_sharepoint_file(url, username=None, password=None):
@@ -166,11 +169,39 @@ def fetch_hubspot_tickets(api_key):
         st.error(f"Error fetching HubSpot tickets: {str(e)}")
         return pd.DataFrame()
 
+# --- Sidebar Logo ---
+def display_sidebar_animated_gif(gif_path, width=250):
+    """Display animated GIF in sidebar using HTML"""
+    try:
+        with open(gif_path, "rb") as gif_file:
+            contents = gif_file.read()
+            data_url = base64.b64encode(contents).decode("utf-8")
+            
+        st.sidebar.markdown(
+            f'<div style="display: flex; justify-content: center; margin-bottom: 30px; margin-top: 10px;">'
+            f'<img src="data:image/gif;base64,{data_url}" width="{width}" style="border-radius: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.1);">'
+            f'</div>',
+            unsafe_allow_html=True
+        )
+        return True
+    except Exception as e:
+        st.sidebar.error(f"Could not load logo: {str(e)}")
+        return False
+
+# Display logo at top of sidebar
+if not display_sidebar_animated_gif("Untitled design.gif", width=250):
+    st.sidebar.markdown(
+        '<div style="text-align: center; margin-bottom: 30px; margin-top: 10px;">'
+        '<h3 style="color: #1f77b4; font-family: Arial Black;">🚀 Avathon Analytics</h3>'
+        '</div>',
+        unsafe_allow_html=True
+    )
+
 # --- App Navigation ---
 st.sidebar.title("Navigation")
 page = st.sidebar.selectbox(
     "Go to",
-    ("Ops Review", "Tickets", "Finance", "Chat Analytics")
+    ("Projects & Customer Health", "Support Tickets", "Dinh and Kyle Sheet", "Revenue", "Chat Analytics")
 )
 
 # --- Initialize session state for chat ---
@@ -262,10 +293,32 @@ DATA_SOURCES = {
         "url": f"{BASE_GOOGLE_SHEETS_URL}&sheet=Tickets",
         "sheet": "Tickets"
     },
+    "may_revenue_excel": {
+        "file": "May'25 Revenue.xlsx",
+        "sheets": ["Summary", "Details", "Projections"]  # Add your actual sheet names
+    },
     "weekly_status_pdf": {
         "url": "https://github.com/mini-nijgal/Opsreview/raw/main/Weekly%20Project%20Status%207.05.2025.pdf"
     }
 }
+
+# Function to read May 2025 Excel file
+def load_may_revenue_excel():
+    try:
+        excel_file_path = os.path.join(os.path.dirname(__file__), "May'25 Revenue.xlsx")
+        if os.path.exists(excel_file_path):
+            # Load all sheets
+            excel_data = {}
+            with pd.ExcelFile(excel_file_path) as xls:
+                for sheet_name in xls.sheet_names:
+                    excel_data[sheet_name] = pd.read_excel(excel_file_path, sheet_name=sheet_name)
+            return excel_data
+        else:
+            st.warning(f"Excel file 'May'25 Revenue.xlsx' not found in {os.path.dirname(__file__)}")
+            return None
+    except Exception as e:
+        st.error(f"Error loading May 2025 Excel file: {e}")
+        return None
 
 data_source = st.radio("Choose data source:", ("Use Google Sheets Data", "Upload File", "Enter URL", "Use Default File"))
 # Initialize df as None or an empty DataFrame
@@ -274,8 +327,8 @@ df = pd.DataFrame() # Initialize as empty DataFrame
 with st.container():
     if data_source == "Use Google Sheets Data":
         # Load data based on the selected page
-        if page == "Ops Review":
-            with st.spinner("Loading Ops Review data from Google Sheets..."):
+        if page == "Projects & Customer Health":
+            with st.spinner("Loading Projects & Customer Health data from Google Sheets..."):
                 ops_url = DATA_SOURCES["ops_review"]["url"]
                 try:
                     # Try different encodings
@@ -295,7 +348,7 @@ with st.container():
                             for date_col in ["Contract Start Date", "Contract End Date", "Project Start Date"]:
                                 if date_col in df.columns:
                                     df[date_col] = pd.to_datetime(df[date_col], errors='coerce')
-                            st.success(f"✅ Ops Review data loaded successfully from Google Sheets 'Master' tab!")
+                            st.success(f"✅ Projects & Customer Health data loaded successfully from Google Sheets 'Master' tab!")
                             st.info("🔗 Data source: [Master Tab - Google Sheets](https://docs.google.com/spreadsheets/d/1Nxvj1LRWYIw3cQcX2Qz9RJmvv17JlCe-V8G2tmvqHfE/edit#gid=0)")
                         else:
                             st.warning("⚠️ Google Sheets Master tab doesn't have expected structure. Loading local Data1.csv instead...")
@@ -307,7 +360,7 @@ with st.container():
                                     for date_col in ["Contract Start Date", "Contract End Date", "Project Start Date"]:
                                         if date_col in df.columns:
                                             df[date_col] = pd.to_datetime(df[date_col], errors='coerce')
-                                    st.info("✅ Loaded Data1.csv as fallback for Ops Review.")
+                                    st.info("✅ Loaded Data1.csv as fallback for Projects & Customer Health.")
                                 else:
                                     df = df_loaded  # Use whatever we got from Google Sheets
                                     st.warning("Could not find local Data1.csv, using Google Sheets data anyway.")
@@ -319,39 +372,16 @@ with st.container():
                 except Exception as e:
                     st.error(f"Error loading data from Google Sheets: {e}")
                     st.info("Try using the 'Use Default File' option if external data sources are not available.")
-        elif page == "Finance":
-            with st.spinner("Loading Finance data from Google Sheets..."):
-                finance_url = DATA_SOURCES["finance"]["url"]
-                try:
-                    # Try different encodings
-                    try:
-                        df_loaded = pd.read_csv(finance_url)
-                    except UnicodeDecodeError:
-                        df_loaded = pd.read_csv(finance_url, encoding='latin1')
-                    
-                    if not df_loaded.empty:
-                        df = df_loaded
-                        # Convert date columns if they exist
-                        for date_col in ["Contract Start Date", "Contract End Date", "Project Start Date"]:
-                            if date_col in df.columns:
-                                df[date_col] = pd.to_datetime(df[date_col], errors='coerce')
-                        st.success(f"✅ {page} data loaded successfully from Google Sheets 'Finance' tab!")
-                        st.info("🔗 Data source: [Finance Tab - Google Sheets](https://docs.google.com/spreadsheets/d/1Nxvj1LRWYIw3cQcX2Qz9RJmvv17JlCe-V8G2tmvqHfE/edit#gid=Finance)")
-                    else:
-                        st.error("Empty data returned from Google Sheets Finance tab.")
-                except Exception as e:
-                    st.error(f"Error loading data from Google Sheets: {e}")
-                    st.info("Try using the 'Use Default File' option if external data sources are not available.")
-        elif page == "Tickets":
+        elif page == "Support Tickets":
             # Try to load from HubSpot first
             if 'hubspot_api_key' in st.session_state and st.session_state.hubspot_api_key:
-                with st.spinner("Loading Tickets data from HubSpot..."):
+                with st.spinner("Loading Support Tickets data from HubSpot..."):
                     try:
                         df_loaded = fetch_hubspot_tickets(st.session_state.hubspot_api_key)
                         
                         if not df_loaded.empty:
                             df = df_loaded
-                            st.success(f"✅ {len(df)} tickets loaded successfully from HubSpot!")
+                            st.success(f"✅ {len(df)} support tickets loaded successfully from HubSpot!")
                             st.info("🔗 Data source: [HubSpot Tickets](https://app.hubspot.com/contacts/20074161/objects/0-5/views/all/list)")
                         else:
                             st.warning("No tickets found in HubSpot. Check your API key and permissions.")
@@ -371,7 +401,7 @@ with st.container():
                         st.info("Please check your HubSpot API key in the sidebar")
             else:
                 # No HubSpot key provided, use Google Sheets
-                with st.spinner("Loading Tickets data from Google Sheets..."):
+                with st.spinner("Loading Support Tickets data from Google Sheets..."):
                     st.info("💡 Configure HubSpot API key in sidebar to load real ticket data")
                     tickets_url = DATA_SOURCES["tickets"]["url"]
                     try:
@@ -394,6 +424,92 @@ with st.container():
                     except Exception as e:
                         st.error(f"Error loading data from Google Sheets: {e}")
                         st.info("Try using the 'Use Default File' option if external data sources are not available.")
+        elif page == "Dinh and Kyle Sheet":
+            st.title("📊 Dinh and Kyle Sheet")
+            st.markdown("Financial performance analysis using May 2025 Revenue data.")
+            # Load May 2025 Excel file
+            may_excel_data = load_may_revenue_excel()
+            
+            if may_excel_data:
+                st.success(f"✅ May 2025 Revenue Excel loaded with {len(may_excel_data)} sheets")
+                
+                # Sheet selector
+                selected_sheet = st.selectbox("Select sheet to analyze:", list(may_excel_data.keys()))
+                
+                if selected_sheet and selected_sheet in may_excel_data:
+                    sheet_df = may_excel_data[selected_sheet]
+                    
+                    if not sheet_df.empty:
+                        st.subheader(f"Financial Analysis - {selected_sheet} Sheet")
+                        
+                        # Show basic info about the sheet
+                        col1, col2, col3 = st.columns(3)
+                        with col1:
+                            st.metric("Total Rows", len(sheet_df))
+                        with col2:
+                            st.metric("Total Columns", len(sheet_df.columns))
+                        with col3:
+                            # Try to find revenue column
+                            revenue_cols = [col for col in sheet_df.columns if 'revenue' in col.lower() or 'amount' in col.lower()]
+                            if revenue_cols:
+                                total_revenue = pd.to_numeric(sheet_df[revenue_cols[0]], errors='coerce').sum()
+                                st.metric("Total Revenue", f"${total_revenue:,.0f}")
+                            else:
+                                st.metric("Data Type", "Financial")
+                        
+                        # Create visualizations based on sheet content
+                        st.markdown("### 📊 Financial Visualizations")
+                        
+                        # If there are date columns, create time-based charts
+                        date_cols = [col for col in sheet_df.columns if 'date' in col.lower()]
+                        if date_cols:
+                            date_col = date_cols[0]
+                            sheet_df[date_col] = pd.to_datetime(sheet_df[date_col], errors='coerce')
+                            
+                            if revenue_cols:
+                                # Revenue over time
+                                fig_time = px.line(
+                                    sheet_df,
+                                    x=date_col,
+                                    y=revenue_cols[0],
+                                    title=f"Revenue Trend Over Time - {selected_sheet}",
+                                    markers=True
+                                )
+                                st.plotly_chart(fig_time, use_container_width=True)
+                        
+                        # Category-based analysis
+                        categorical_cols = sheet_df.select_dtypes(include=['object']).columns
+                        if len(categorical_cols) > 0 and revenue_cols:
+                            cat_col = categorical_cols[0]
+                            if len(sheet_df[cat_col].unique()) <= 15:  # Only for reasonable number of categories
+                                category_revenue = sheet_df.groupby(cat_col)[revenue_cols[0]].sum().reset_index()
+                                
+                                fig_cat = px.bar(
+                                    category_revenue,
+                                    x=cat_col,
+                                    y=revenue_cols[0],
+                                    title=f"Revenue by {cat_col} - {selected_sheet}",
+                                    color=revenue_cols[0],
+                                    color_continuous_scale="Blues"
+                                )
+                                st.plotly_chart(fig_cat, use_container_width=True)
+                        
+                        # Show data preview
+                        st.markdown("### 📋 Data Preview")
+                        st.dataframe(sheet_df.head(10), use_container_width=True)
+                        
+                    else:
+                        st.warning(f"Sheet '{selected_sheet}' is empty")
+            else:
+                st.info("💡 Add 'May'25 Revenue.xlsx' file to the same directory as dashboard.py to see May 2025 financial analysis")
+        elif page == "Revenue":
+            data_file_path = os.path.join(os.path.dirname(__file__), "Revenue.csv")
+            if os.path.exists(data_file_path):
+                df = pd.read_csv(data_file_path)
+                st.success("✅ Revenue.csv loaded successfully for Revenue page!")
+            else:
+                st.error(f"❌ File 'Revenue.csv' not found in {os.path.dirname(__file__)}.")
+                st.info("Please ensure Revenue.csv is in the same directory as the dashboard.py file.")
         else:
             # Default to Ops Review data for Chat Analytics
             with st.spinner("Loading data from Google Sheets..."):
@@ -461,23 +577,15 @@ with st.container():
         # Load default sample data from specific CSV files
         with st.spinner("Loading default sample data..."):
             try:
-                if page == "Ops Review":
+                if page == "Projects & Customer Health":
                     data_file_path = os.path.join(os.path.dirname(__file__), "Data1.csv")
                     if os.path.exists(data_file_path):
                         df = pd.read_csv(data_file_path)
-                        st.success("✅ Data1.csv loaded successfully for Ops Review!")
+                        st.success("✅ Data1.csv loaded successfully for Projects & Customer Health!")
                     else:
                         st.error(f"❌ File 'Data1.csv' not found in {os.path.dirname(__file__)}.")
                         st.info("Please ensure Data1.csv is in the same directory as the dashboard.py file.")
-                elif page == "Finance":
-                    data_file_path = os.path.join(os.path.dirname(__file__), "Revenue.csv")
-                    if os.path.exists(data_file_path):
-                        df = pd.read_csv(data_file_path)
-                        st.success("✅ Revenue.csv loaded successfully for Finance!")
-                    else:
-                        st.error(f"❌ File 'Revenue.csv' not found in {os.path.dirname(__file__)}.")
-                        st.info("Please ensure Revenue.csv is in the same directory as the dashboard.py file.")
-                elif page == "Tickets":
+                elif page == "Support Tickets":
                     # Look for Tickets.csv, fallback to Data1.csv
                     tickets_file_path = os.path.join(os.path.dirname(__file__), "Tickets.csv")
                     if os.path.exists(tickets_file_path):
@@ -491,6 +599,25 @@ with st.container():
                             st.info("📋 Data1.csv loaded for Tickets page (Tickets.csv not found).")
                         else:
                             st.error(f"❌ Neither 'Tickets.csv' nor 'Data1.csv' found in {os.path.dirname(__file__)}.")
+                elif page == "Dinh and Kyle Sheet":
+                    # Load May 2025 Excel file for Finance tab
+                    may_excel_data = load_may_revenue_excel()
+                    if may_excel_data:
+                        # Use the first sheet as default for Finance tab
+                        first_sheet = list(may_excel_data.keys())[0]
+                        df = may_excel_data[first_sheet]
+                        st.success(f"✅ May'25 Revenue.xlsx loaded successfully for Finance! Using sheet: {first_sheet}")
+                    else:
+                        st.error(f"❌ File 'May'25 Revenue.xlsx' not found in {os.path.dirname(__file__)}.")
+                        st.info("Please ensure May'25 Revenue.xlsx is in the same directory as the dashboard.py file.")
+                elif page == "Revenue":
+                    data_file_path = os.path.join(os.path.dirname(__file__), "Revenue.csv")
+                    if os.path.exists(data_file_path):
+                        df = pd.read_csv(data_file_path)
+                        st.success("✅ Revenue.csv loaded successfully for Revenue page!")
+                    else:
+                        st.error(f"❌ File 'Revenue.csv' not found in {os.path.dirname(__file__)}.")
+                        st.info("Please ensure Revenue.csv is in the same directory as the dashboard.py file.")
                 else:
                     # Default to Data1.csv for Chat Analytics and other pages
                     data_file_path = os.path.join(os.path.dirname(__file__), "Data1.csv")
@@ -515,7 +642,7 @@ with st.container():
 df_filtered = df.copy()
 
 # Special handling for Ops Review page - ensure we're using Data1 tab structure
-if page == "Ops Review" and not df_filtered.empty:
+if page == "Projects & Customer Health" and not df_filtered.empty:
     # Check if we have the expected Ops Review columns (Data1 tab structure)
     required_ops_columns = ["Exective", "Project Status (R/G/Y)"]
     has_ops_columns = all(col in df_filtered.columns for col in required_ops_columns)
@@ -533,7 +660,7 @@ if page == "Ops Review" and not df_filtered.empty:
                 
                 df = df_ops.copy()
                 df_filtered = df_ops.copy()
-                st.success("✅ Data1.csv loaded specifically for Ops Review!")
+                st.success("✅ Data1.csv loaded specifically for Projects & Customer Health!")
             else:
                 st.error("❌ Could not find Data1.csv file.")
         except Exception as e:
@@ -643,8 +770,8 @@ def display_faq(current_data):
         faq_items = {
             "What is the total revenue?": f"The total revenue in the current filtered data is ${current_data['Revenue'].sum():,.0f}." if 'Revenue' in current_data else "Revenue data not available.",
             "How many projects are there in total?": f"There are {current_data.shape[0]} projects in the current filtered data.",
-            "Which executive has the most projects?": (f"The executive with the most projects is {current_data['Exective'].mode()[0]} with {current_data['Exective'].value_counts().max()} projects." if 'Exective' in current_data and not current_data['Exective'].dropna().empty else "Executive data not available or insufficient."),
-            "What are the different project statuses?": (f"The project statuses are: {', '.join(current_data['Project Status (R/G/Y)'].unique())}." if 'Project Status (R/G/Y)' in current_data else "Project status data not available.")
+            "Which executive has the most projects?": (f"The executive with the most projects is {current_data['Exective'].mode()[0]} with {current_data['Exective'].value_counts().max()} projects." if 'Exective' in current_data and not current_data['Exective'].dropna().empty and len(current_data['Exective'].mode()) > 0 else "Executive data not available or insufficient."),
+            "What are the different project statuses?": (f"The project statuses are: {', '.join([str(x) for x in current_data['Project Status (R/G/Y)'].unique() if pd.notna(x)])}." if 'Project Status (R/G/Y)' in current_data else "Project status data not available.")
         }
     else:
         faq_items["No data loaded"] = "Please load data to see relevant FAQs."
@@ -1633,7 +1760,7 @@ def analyze_data_for_chat(question, data):
 current_display_df = df_filtered # Use filtered data for display pages
 
 if not current_display_df.empty:
-    if page == "Ops Review":
+    if page == "Projects & Customer Health":
         st.title("📊 Customer Health and Revenue Analysis Dashboard")
         
         # Show data source indicator
@@ -1820,66 +1947,227 @@ if not current_display_df.empty:
         st.markdown("---")
         st.markdown("## 📈 Visualizations")
         
-        if "Geography" in current_display_df.columns:
-            # Get geography data for world map
-            geo_counts = current_display_df["Geography"].value_counts().reset_index()
-            geo_counts.columns = ["Geography", "Project_Count"]
+        # Interactive World Map
+        if "Geography - Location" in current_display_df.columns or "Geography" in current_display_df.columns:
+            st.subheader("🌍 Interactive World Map - Global Project Distribution")
             
-            if not geo_counts.empty:
-                # Create a mapping for common geography names to country codes
-                country_mapping = {
-                    "USA": "United States",
-                    "US": "United States", 
-                    "United States": "United States",
-                    "UK": "United Kingdom",
-                    "United Kingdom": "United Kingdom",
-                    "Canada": "Canada",
-                    "Germany": "Germany",
-                    "France": "France",
-                    "Italy": "Italy",
-                    "Spain": "Spain",
-                    "Japan": "Japan",
-                    "China": "China",
-                    "India": "India",
-                    "Australia": "Australia",
-                    "Brazil": "Brazil",
-                    "Mexico": "Mexico",
-                    "Netherlands": "Netherlands",
-                    "Sweden": "Sweden",
-                    "Norway": "Norway",
-                    "South Korea": "South Korea",
-                    "Singapore": "Singapore"
-                }
+            # Create location mapping for countries/cities to coordinates
+            location_coords = {
+                'USA': {'lat': 39.8283, 'lon': -98.5795, 'country': 'United States'},
+                'United States': {'lat': 39.8283, 'lon': -98.5795, 'country': 'United States'},
+                'Houston, Texas': {'lat': 29.7604, 'lon': -95.3698, 'country': 'United States'},
+                'Austin': {'lat': 30.2672, 'lon': -97.7431, 'country': 'United States'},
+                'Texas': {'lat': 31.9686, 'lon': -99.9018, 'country': 'United States'},
+                'Canada': {'lat': 56.1304, 'lon': -106.3468, 'country': 'Canada'},
+                'Mumbai, India': {'lat': 19.0760, 'lon': 72.8777, 'country': 'India'},
+                'Navi Mumbai': {'lat': 19.0330, 'lon': 73.0297, 'country': 'India'},
+                'Chennai': {'lat': 13.0827, 'lon': 80.2707, 'country': 'India'},
+                'Kolkata': {'lat': 22.5726, 'lon': 88.3639, 'country': 'India'},
+                'Gujarat': {'lat': 23.0225, 'lon': 72.5714, 'country': 'India'},
+                'Odissa': {'lat': 20.9517, 'lon': 85.0985, 'country': 'India'},
+                'Pakistan': {'lat': 30.3753, 'lon': 69.3451, 'country': 'Pakistan'},
+                'Saudi Arabia': {'lat': 23.8859, 'lon': 45.0792, 'country': 'Saudi Arabia'},
+                'Singapore': {'lat': 1.3521, 'lon': 103.8198, 'country': 'Singapore'},
+                'Austrialla': {'lat': -25.2744, 'lon': 133.7751, 'country': 'Australia'},
+                'Australia': {'lat': -25.2744, 'lon': 133.7751, 'country': 'Australia'},
+                'Ireland': {'lat': 53.1424, 'lon': -7.6921, 'country': 'Ireland'},
+                'Finland': {'lat': 61.9241, 'lon': 25.7482, 'country': 'Finland'},
+                'Colombia': {'lat': 4.5709, 'lon': -74.2973, 'country': 'Colombia'},
+                # Regional fallbacks
+                'EU': {'lat': 54.5260, 'lon': 15.2551, 'country': 'Europe'},
+                'NAM': {'lat': 45.0000, 'lon': -100.0000, 'country': 'North America'},
+                'APAC': {'lat': 35.0000, 'lon': 105.0000, 'country': 'Asia Pacific'},
+                'MEA': {'lat': 26.0667, 'lon': 50.5577, 'country': 'Middle East & Africa'},
+                'LATAM': {'lat': -8.7832, 'lon': -55.4915, 'country': 'Latin America'}
+            }
+            
+            # Prepare map data
+            map_data = []
+            
+            # Use Geography - Location if available, otherwise fall back to Geography
+            location_col = "Geography - Location" if "Geography - Location" in current_display_df.columns else "Geography"
+            
+            for location in current_display_df[location_col].dropna().unique():
+                location_str = str(location).strip()
+                if location_str in location_coords:
+                    # Count projects and customers for this location
+                    location_data = current_display_df[current_display_df[location_col] == location]
+                    project_count = len(location_data)
+                    customer_count = location_data["Customer Name"].nunique() if "Customer Name" in location_data.columns else 0
+                    
+                    # Get customer names
+                    customers = location_data["Customer Name"].unique() if "Customer Name" in location_data.columns else []
+                    customer_list = ", ".join(customers[:5])  # Show first 5 customers
+                    if len(customers) > 5:
+                        customer_list += f" and {len(customers) - 5} more"
+                    
+                    # Get status breakdown
+                    status_col = "Project Status (R/G/Y)" if "Project Status (R/G/Y)" in location_data.columns else None
+                    status_info = ""
+                    if status_col and not location_data[status_col].empty:
+                        status_counts = location_data[status_col].value_counts()
+                        status_info = " | ".join([f"{status}: {count}" for status, count in status_counts.items()])
+                    
+                    map_data.append({
+                        'location': location_str,
+                        'lat': location_coords[location_str]['lat'],
+                        'lon': location_coords[location_str]['lon'],
+                        'country': location_coords[location_str]['country'],
+                        'projects': project_count,
+                        'customers': customer_count,
+                        'customer_list': customer_list,
+                        'status_info': status_info,
+                        'size': min(project_count * 10, 100)  # Size for bubble chart
+                    })
+            
+            if map_data:
+                map_df = pd.DataFrame(map_data)
                 
-                # Map geography names to standardized country names
-                geo_counts["Country"] = geo_counts["Geography"].map(country_mapping).fillna(geo_counts["Geography"])
-                
-                # Create world map
-                fig_world_map = px.choropleth(
-                    geo_counts,
-                    locations="Country",
-                    color="Project_Count",
-                    hover_name="Geography",
-                    hover_data={"Project_Count": True},
-                    locationmode="country names",
-                    color_continuous_scale="Viridis",
-                    title="Project Count by Geography - World Map"
+                # Create beautiful scatter geo map
+                fig_map = px.scatter_geo(
+                    map_df,
+                    lat='lat',
+                    lon='lon',
+                    size='projects',
+                    color='projects',
+                    hover_name='location',
+                    hover_data={
+                        'country': True,
+                        'projects': True,
+                        'customers': True,
+                        'customer_list': True,
+                        'status_info': True,
+                        'lat': False,
+                        'lon': False
+                    },
+                    color_continuous_scale='Viridis',
+                    size_max=50,
+                    title="🌍 Global Project Distribution",
+                    labels={
+                        'projects': 'Projects',
+                        'customers': 'Customers',
+                        'customer_list': 'Customer Names',
+                        'status_info': 'Project Status',
+                        'country': 'Country/Region'
+                    }
                 )
                 
-                fig_world_map.update_layout(
-                    height=600,
+                # Enhanced styling
+                fig_map.update_traces(
+                    marker=dict(
+                        line=dict(width=2, color='white'),
+                        opacity=0.8
+                    ),
+                    hovertemplate="<b>%{hovertext}</b><br>" +
+                                  "Country: %{customdata[0]}<br>" +
+                                  "Projects: %{customdata[1]}<br>" +
+                                  "Customers: %{customdata[2]}<br>" +
+                                  "Customer List: %{customdata[3]}<br>" +
+                                  "Status: %{customdata[4]}<br>" +
+                                  "<extra></extra>"
+                )
+                
+                # Beautiful layout
+                fig_map.update_layout(
+                    title={
+                        'text': "🌍 Global Project Distribution",
+                        'x': 0.5,
+                        'xanchor': 'center',
+                        'font': {'size': 24, 'color': '#1f77b4', 'family': 'Arial Black'}
+                    },
+                    height=650,
                     geo=dict(
                         showframe=False,
                         showcoastlines=True,
-                        projection_type='equirectangular'
-                    )
+                        coastlinecolor="#2E86AB",
+                        coastlinewidth=2,
+                        showland=True,
+                        landcolor='#F8F9FA',
+                        showocean=True,
+                        oceancolor='#E3F2FD',
+                        showlakes=True,
+                        lakecolor='#E3F2FD',
+                        projection_type='natural earth',
+                        bgcolor='white'
+                    ),
+                    paper_bgcolor='white',
+                    font=dict(family="Arial", size=12),
+                    margin=dict(l=20, r=20, t=80, b=20)
                 )
                 
-                st.plotly_chart(fig_world_map, use_container_width=True)
+                st.plotly_chart(fig_map, use_container_width=True)
+                
+                # Add summary statistics below the map
+                col1, col2, col3, col4 = st.columns(4)
+                with col1:
+                    st.metric("Total Locations", len(map_df))
+                with col2:
+                    st.metric("Total Projects", map_df['projects'].sum())
+                with col3:
+                    st.metric("Total Customers", map_df['customers'].sum())
+                with col4:
+                    top_location = map_df.loc[map_df['projects'].idxmax(), 'location']
+                    st.metric("Top Location", top_location)
+                
+                # Show location breakdown table
+                with st.expander("📍 View Detailed Location Breakdown"):
+                    display_df = map_df[['location', 'country', 'projects', 'customers', 'customer_list']].copy()
+                    display_df.columns = ['Location', 'Country/Region', 'Projects', 'Customers', 'Customer Names']
+                    display_df = display_df.sort_values('Projects', ascending=False)
+                    st.dataframe(display_df, use_container_width=True)
+            else:
+                st.info("No location data available for mapping.")
+        
+        if "Geography" in current_display_df.columns:
+            st.subheader("Clients by Geography")
+            
+            # Get client names by geography
+            geo_clients = current_display_df.groupby("Geography")["Customer Name"].apply(
+                lambda x: list(x.unique())
+            ).reset_index()
+            geo_clients["Client_Count"] = geo_clients["Customer Name"].apply(len)
+            geo_clients["Client_Names"] = geo_clients["Customer Name"].apply(lambda x: ", ".join(x))
+            
+            if not geo_clients.empty:
+                # Create bar chart showing client count by geography
+                fig_geo_clients = px.bar(
+                    geo_clients,
+                    x="Geography",
+                    y="Client_Count",
+                    title="Number of Clients by Geography",
+                    color="Client_Count",
+                    color_continuous_scale="Viridis",
+                    hover_data=["Client_Names"]
+                )
+                
+                fig_geo_clients.update_traces(
+                    text=geo_clients["Client_Count"],
+                    textposition="outside",
+                    hovertemplate="<b>%{x}</b><br>" +
+                                  "Number of Clients: %{y}<br>" +
+                                  "Clients: %{customdata[0]}<br>" +
+                                  "<extra></extra>"
+                )
+                
+                fig_geo_clients.update_layout(
+                    height=500,
+                    xaxis_title="Geography",
+                    yaxis_title="Number of Clients",
+                    showlegend=False
+                )
+                
+                st.plotly_chart(fig_geo_clients, use_container_width=True)
+                
+                # Show detailed client list below chart
+                with st.expander("View Client Details by Geography"):
+                    for _, row in geo_clients.iterrows():
+                        st.write(f"**{row['Geography']}** ({row['Client_Count']} clients):")
+                        st.write(f"  {row['Client_Names']}")
+                        st.write("")
             else: 
-                st.write("Not enough data for 'Project Count by Geography' world map.")
+                st.write("Not enough data for 'Clients by Geography' chart.")
         else: 
-            st.write("Required column 'Geography' not found for world map.")
+            st.write("Required column 'Geography' not found for geography chart.")
 
         # Customer Health Chart - handle different column name variations
         health_col = None
@@ -2120,70 +2408,38 @@ if not current_display_df.empty:
                 )
                 
                 st.plotly_chart(fig_status_pie, use_container_width=True)
-                
-                # Add a simple status breakdown table below
-                st.subheader("Status Breakdown")
-                col1, col2 = st.columns(2)
-                
-                with col1:
-                    st.markdown("**Project Counts by Status:**")
-                    for idx, row in status_counts_df.iterrows():
-                        percentage = (row['Count'] / status_counts_df['Count'].sum()) * 100
-                        st.markdown(f"• **{row['Status']}**: {row['Count']} projects ({percentage:.1f}%)")
-                
-                with col2:
-                    # Show top customers for each status
-                    st.markdown("**Top Customer by Status:**")
-                    for status in status_counts_df['Status']:
-                        customers_for_status = current_display_df[current_display_df[status_col] == status]
-                        if not customers_for_status.empty:
-                            top_customer = customers_for_status["Customer Name"].value_counts().head(1)
-                            if not top_customer.empty:
-                                customer_name = top_customer.index[0]
-                                customer_count = top_customer.iloc[0]
-                                st.markdown(f"• **{status}**: {customer_name} ({customer_count} projects)")
-                            else:
-                                st.markdown(f"• **{status}**: No customer data")
             else: st.write("Not enough data for 'Project Status Distribution' chart.")
         
         with viz_row3_col2:
             if "Contract End Date" in current_display_df.columns and not current_display_df["Contract End Date"].isnull().all():
-                # Create a DataFrame with contract end dates and customer names
-                contract_customer_data = current_display_df[["Contract End Date", "Customer Name"]].dropna()
+                st.subheader("Projects by Contract End Date")
                 
-                if not contract_customer_data.empty:
-                    # Group by year and customer
-                    contract_customer_data["End_Year"] = contract_customer_data["Contract End Date"].dt.year
-                    contract_trend_year = contract_customer_data.groupby(["End_Year", "Customer Name"]).size().reset_index(name="Contract_Count")
+                # Create a DataFrame with contract end dates and project names
+                contract_project_data = current_display_df[["Contract End Date", "Customer Name"]].dropna()
+                
+                if not contract_project_data.empty:
+                    # Extract year from contract end date
+                    contract_project_data["End_Year"] = contract_project_data["Contract End Date"].dt.year
                     
-                    # Create scatter plot with client names visible
-                    fig_contracts_scatter = px.scatter(
+                    # Group by year and project name for stacked bar chart
+                    contract_trend_year = contract_project_data.groupby(["End_Year", "Customer Name"]).size().reset_index(name="Project_Count")
+                    
+                    # Create stacked bar chart
+                    fig_contracts_stacked = px.bar(
                         contract_trend_year,
                         x="End_Year",
-                        y="Contract_Count", 
+                        y="Project_Count", 
                         color="Customer Name",
-                        text="Customer Name",  # Show client names as text
-                        title="Contracts Ending by Year - Scatter Plot",
-                        hover_data=["Contract_Count"],
-                        size_max=60
+                        title="Projects by Contract End Date (Stacked)",
+                        barmode="stack",
+                        color_discrete_sequence=px.colors.qualitative.Set3
                     )
                     
-                    # Update text positioning and styling
-                    fig_contracts_scatter.update_traces(
-                        textposition="middle center",
-                        textfont=dict(size=10, color="black"),
-                        marker=dict(size=12, line=dict(width=2, color="white")),
-                        hovertemplate="<b>%{customdata[1]}</b><br>" +
-                                      "Year: %{x}<br>" +
-                                      "Contracts: %{y}<br>" +
-                                      "<extra></extra>"
-                    )
-                    
-                    # Improve layout for better readability
-                    fig_contracts_scatter.update_layout(
+                    # Update layout for better readability
+                    fig_contracts_stacked.update_layout(
                         height=500,
                         xaxis_title="Contract End Year",
-                        yaxis_title="Number of Contracts",
+                        yaxis_title="Number of Projects",
                         showlegend=True,
                         legend=dict(
                             orientation="v",
@@ -2192,34 +2448,42 @@ if not current_display_df.empty:
                             xanchor="left",
                             x=1.02
                         ),
-                        # Add some padding to prevent text overlap
                         margin=dict(l=50, r=150, t=50, b=50)
                     )
                     
                     # Adjust x-axis to show all years clearly
                     if len(contract_trend_year["End_Year"].unique()) > 1:
                         year_range = contract_trend_year["End_Year"].max() - contract_trend_year["End_Year"].min()
-                        fig_contracts_scatter.update_xaxes(
+                        fig_contracts_stacked.update_xaxes(
                             tickmode="linear",
                             dtick=1 if year_range <= 10 else 2
                         )
                     
-                    st.plotly_chart(fig_contracts_scatter, use_container_width=True)
+                    st.plotly_chart(fig_contracts_stacked, use_container_width=True)
                 else:
-                    st.write("Not enough data for 'Contracts Ending by Year' chart.")
-            else: st.write("Column 'Contract End Date' not found or empty for 'Contracts Ending by Year' chart.")
+                    st.write("Not enough data for 'Projects by Contract End Date' chart.")
+            else: 
+                st.write("Column 'Contract End Date' not found or empty for 'Projects by Contract End Date' chart.")
         
 
 
         st.markdown("---"); st.markdown("## 📄 Embedded Documents")
-        # st.markdown("### SharePoint Presentation")
-        # components.iframe(src="https://sparkc.sharepoint.com/:p:/s/ProfessionalServicesGroup/EV7F-1-nHr5BkrR6-MbTuPYBSISt1dQ9BdkuX3MUYm94NA?e=JOkhCh", height=450, width=1000, scrolling=True)
         
-        st.markdown("### Weekly Project Status PDF")
+        # Weekly Project Status with dropdown selection
+        st.markdown("### Weekly Project Status")
+        
+        # Dropdown for PDF selection
+        pdf_options = {
+            "Weekly Project Status 7.05.2025": "Weekly%20Project%20Status%207.05.2025.pdf",
+            "Weekly Project Status 4June2025": "Weekly%20Project%20Status%204June2025.pdf"
+        }
+        
+        selected_pdf = st.selectbox("Select Weekly Status Report:", list(pdf_options.keys()))
         
         # Get PDF from Google Sheets
-        def show_google_sheets_pdf(url):
-            with st.spinner("Loading PDF from Google Sheets..."):
+        def show_google_sheets_pdf(pdf_filename):
+            url = f"https://github.com/mini-nijgal/Opsreview/raw/main/{pdf_filename}"
+            with st.spinner("Loading PDF from GitHub..."):
                 try:
                     import requests
                     response = requests.get(url)
@@ -2237,7 +2501,7 @@ if not current_display_df.empty:
                             
                             # Display basic PDF info
                             with st.expander("PDF Information"):
-                                st.write("PDF successfully loaded from Google Sheets")
+                                st.write(f"PDF successfully loaded: {selected_pdf}")
                             
                             # Clean up the temp file
                             os.unlink(tmp_path)
@@ -2246,32 +2510,14 @@ if not current_display_df.empty:
                             if os.path.exists(tmp_path):
                                 os.unlink(tmp_path)
                     else:
-                        st.error(f"Failed to retrieve PDF from Google Sheets. Status code: {response.status_code}")
+                        st.error(f"Failed to retrieve PDF from GitHub. Status code: {response.status_code}")
                 except Exception as e:
-                    st.error(f"Error accessing Google Sheets PDF: {str(e)}")
+                    st.error(f"Error accessing GitHub PDF: {str(e)}")
         
-        # Use the function to display Google Sheets PDF
-        show_google_sheets_pdf(DATA_SOURCES["weekly_status_pdf"]["url"])
-        
-        # Legacy code for local PDF (as fallback)
-        with st.expander("Try Local PDF (Fallback Option)"):
-            st.info("If Google Sheets PDF export doesn't work, you can try loading from a local file.")
-            
-            # Original local PDF display function
-            def show_local_pdf(pdf_file_path):
-                script_dir = os.path.dirname(__file__)
-                abs_pdf_file_path = os.path.join(script_dir, pdf_file_path)
-                if not os.path.exists(abs_pdf_file_path): abs_pdf_file_path = os.path.abspath(pdf_file_path)
-                if os.path.exists(abs_pdf_file_path):
-                    with open(abs_pdf_file_path, "rb") as f: base64_pdf = base64.b64encode(f.read()).decode('utf-8')
-                    st.markdown(f'<iframe src="data:application/pdf;base64,{base64_pdf}" width="100%" height="650" type="application/pdf" style="border: 1px solid #ddd;"></iframe>', unsafe_allow_html=True)
-                else: st.error(f"PDF file '{pdf_file_path}' not found. Looked for: '{abs_pdf_file_path}'")
-            
-            pdf_file_path = st.text_input("Local PDF file path (relative to script directory):", "Weekly Project Status 4June2025.pdf")
-            if st.button("Load Local PDF"):
-                show_local_pdf(pdf_file_path)
+        # Use the function to display selected PDF
+        show_google_sheets_pdf(pdf_options[selected_pdf])
 
-    elif page == "Tickets":
+    elif page == "Support Tickets":
         st.title("🎫 Tickets Dashboard")
         st.markdown("Insights into support tickets and resolutions.")
         
@@ -2483,6 +2729,22 @@ if not current_display_df.empty:
                 )
                 st.plotly_chart(fig_tickets_app, use_container_width=True)
             
+            # Google Sheets Tickets Tab Iframe
+            st.markdown("---")
+            st.subheader("📋 Live Tickets Data from Google Sheets")
+            
+            # Embed Google Sheets Tickets tab
+            google_sheets_url = "https://docs.google.com/spreadsheets/d/1Nxvj1LRWYIw3cQcX2Qz9RJmvv17JlCe-V8G2tmvqHfE/edit#gid=Tickets"
+            
+            st.components.v1.iframe(
+                src=google_sheets_url,
+                width=None,
+                height=600,
+                scrolling=True
+            )
+            
+            st.markdown("*Live view of the Tickets tab from Google Sheets*")
+            
             # Ticket Response Time analysis if dates available
             date_columns = [col for col in current_display_df.columns if 'date' in col.lower()]
             if len(date_columns) >= 2:  # Need at least 2 date columns for response time
@@ -2496,19 +2758,131 @@ if not current_display_df.empty:
                 st.warning("No data loaded/matches filters to display ticket information.")
 
 
-    elif page == "Finance":
-        st.title("💰 Finance Dashboard")
-        st.markdown("Financial performance and revenue analysis.")
+    elif page == "Dinh and Kyle Sheet":
+        st.title("📊 Dinh and Kyle Sheet")
+        st.markdown("Financial performance analysis using May 2025 Revenue data.")
         
-        # Show data source indicator for Finance
-        if "Status (R/G/Y)" in current_display_df.columns or "Contracted ARR" in current_display_df.columns:
-            st.success("✅ Using Revenue.csv structure (Finance data)")
+        # Load May 2025 Excel file
+        may_excel_data = load_may_revenue_excel()
+        
+        if may_excel_data:
+            st.success(f"✅ May 2025 Revenue Excel loaded with {len(may_excel_data)} sheets")
+            
+            # Sheet selector
+            selected_sheet = st.selectbox("Select sheet to analyze:", list(may_excel_data.keys()))
+            
+            if selected_sheet and selected_sheet in may_excel_data:
+                sheet_df = may_excel_data[selected_sheet]
+                
+                if not sheet_df.empty:
+                    st.subheader(f"📊 {selected_sheet} - May 2025 Revenue Excel")
+                    
+                    # Create Excel-like embedded view
+                    def create_excel_embed(df, sheet_name):
+                        """Create an Excel-like HTML table embed"""
+                        # Convert DataFrame to HTML with Excel-like styling
+                        html_table = df.to_html(
+                            index=True,
+                            classes='excel-table',
+                            table_id='excel-embed',
+                            escape=False,
+                            border=0
+                        )
+                        
+                        # Add Excel-like CSS styling
+                        excel_css = """
+                        <style>
+                        .excel-table {
+                            border-collapse: collapse;
+                            width: 100%;
+                            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+                            font-size: 12px;
+                            background-color: white;
+                            border: 1px solid #d0d7de;
+                        }
+                        .excel-table th {
+                            background-color: #f6f8fa;
+                            border: 1px solid #d0d7de;
+                            padding: 8px 12px;
+                            text-align: left;
+                            font-weight: 600;
+                            color: #24292f;
+                        }
+                        .excel-table td {
+                            border: 1px solid #d0d7de;
+                            padding: 6px 12px;
+                            text-align: left;
+                            background-color: white;
+                        }
+                        .excel-table tr:nth-child(even) td {
+                            background-color: #f6f8fa;
+                        }
+                        .excel-table tr:hover td {
+                            background-color: #e6f3ff;
+                        }
+                        #excel-container {
+                            max-height: 700px;
+                            overflow: auto;
+                            border: 2px solid #d0d7de;
+                            border-radius: 6px;
+                            background-color: white;
+                            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+                        }
+                        .excel-header {
+                            background-color: #0969da;
+                            color: white;
+                            padding: 10px 15px;
+                            font-weight: bold;
+                            border-radius: 4px 4px 0 0;
+                            margin-bottom: 0;
+                        }
+                        </style>
+                        """
+                        
+                        # Combine CSS and HTML
+                        excel_embed = f"""
+                        {excel_css}
+                        <div class="excel-header">📊 {sheet_name} - Excel Sheet View</div>
+                        <div id="excel-container">
+                            {html_table}
+                        </div>
+                        """
+                        
+                        return excel_embed
+                    
+                    # Display the Excel embed
+                    excel_html = create_excel_embed(sheet_df, selected_sheet)
+                    st.components.v1.html(excel_html, height=750, scrolling=True)
+                    
+                    # Add a simple info section below
+                    st.markdown("---")
+                    col1, col2, col3 = st.columns(3)
+                    with col1:
+                        st.info(f"**Rows:** {len(sheet_df)}")
+                    with col2:
+                        st.info(f"**Columns:** {len(sheet_df.columns)}")
+                    with col3:
+                        st.info(f"**Sheet:** {selected_sheet}")
+                    
+                else:
+                    st.warning(f"Sheet '{selected_sheet}' is empty")
         else:
-            st.warning("⚠️ Not using standard Finance data structure")
+            st.info("💡 Add 'May'25 Revenue.xlsx' file to the same directory as dashboard.py to see May 2025 financial analysis")
+
+    elif page == "Revenue":
+        st.title("💰 Revenue Analysis")
+        st.markdown("Revenue performance and analysis using Revenue.csv data.")
+        
+        # Show data source indicator for Revenue
+        if "Current ARR" in current_display_df.columns or "Contracted ARR" in current_display_df.columns or "Recognized ARR" in current_display_df.columns:
+            st.success("✅ Using Revenue.csv structure (Revenue data)")
+        else:
+            st.warning("⚠️ Not using standard Revenue data structure")
         
         if not current_display_df.empty:
             # Clean numeric columns by removing currency symbols and converting to numeric
-            numeric_columns_to_clean = ["Contracted ARR", "Recognized ARR", "Services Revenue"]
+            # Handle both 'Current ARR' and 'Contracted ARR' column names
+            numeric_columns_to_clean = ["Current ARR", "Contracted ARR", "Recognized ARR", "Services Revenue"]
             for col in numeric_columns_to_clean:
                 if col in current_display_df.columns:
                     current_display_df[col] = pd.to_numeric(
@@ -2516,75 +2890,73 @@ if not current_display_df.empty:
                         errors='coerce'
                     ).fillna(0)
             
-            # Add metric cards showing key KPIs
-            st.markdown("### 📊 Key Financial KPIs")
-            fin_kpi_row1 = st.columns(4)
+            # Determine which ARR column to use
+            arr_column = "Current ARR" if "Current ARR" in current_display_df.columns else "Contracted ARR"
             
-            # Contracted ARR
-            total_contracted_arr = current_display_df["Contracted ARR"].sum() if "Contracted ARR" in current_display_df.columns else 0
-            fin_kpi_row1[0].metric(
-                "Total Contracted ARR", 
-                f"${total_contracted_arr:,.0f}"
+            # Add metric cards showing key KPIs
+            st.markdown("### 📊 Key Revenue KPIs")
+            rev_kpi_row1 = st.columns(4)
+            
+            # Current/Contracted ARR
+            total_arr = current_display_df[arr_column].sum() if arr_column in current_display_df.columns else 0
+            rev_kpi_row1[0].metric(
+                f"Total {arr_column}", 
+                f"${total_arr:,.0f}"
             )
             
             # Recognized ARR
             total_recognized_arr = current_display_df["Recognized ARR"].sum() if "Recognized ARR" in current_display_df.columns else 0
-            fin_kpi_row1[1].metric(
+            rev_kpi_row1[1].metric(
                 "Total Recognized ARR", 
                 f"${total_recognized_arr:,.0f}"
             )
             
             # Services Revenue
             total_services_revenue = current_display_df["Services Revenue"].sum() if "Services Revenue" in current_display_df.columns else 0
-            fin_kpi_row1[2].metric(
+            rev_kpi_row1[2].metric(
                 "Total Services Revenue", 
                 f"${total_services_revenue:,.0f}"
             )
             
-            # Active Contracts
-            active_contracts = 0
-            if "Status (R/G/Y)" in current_display_df.columns:
-                active_contracts = current_display_df[current_display_df["Status (R/G/Y)"].astype(str).str.title().isin(["Green", "Amber", "G", "Y", "Yellow"])].shape[0]
-            else: 
-                active_contracts = current_display_df.shape[0] 
-            
-            fin_kpi_row1[3].metric("Active Contracts", f"{active_contracts:,}")
+            # Total Contracts
+            total_contracts = current_display_df.shape[0]
+            rev_kpi_row1[3].metric("Total Contracts", f"{total_contracts:,}")
             
             # Additional KPIs
-            fin_kpi_row2 = st.columns(3)
+            rev_kpi_row2 = st.columns(3)
             
             # Total Customers
             total_customers = current_display_df["Customer Name"].nunique() if "Customer Name" in current_display_df.columns else 0
-            fin_kpi_row2[0].metric("Total Customers", f"{total_customers:,}")
+            rev_kpi_row2[0].metric("Total Customers", f"{total_customers:,}")
             
             # ARR Recognition Rate
-            arr_recognition_rate = (total_recognized_arr / total_contracted_arr * 100) if total_contracted_arr > 0 else 0
-            fin_kpi_row2[1].metric("ARR Recognition Rate", f"{arr_recognition_rate:.1f}%")
+            arr_recognition_rate = (total_recognized_arr / total_arr * 100) if total_arr > 0 else 0
+            rev_kpi_row2[1].metric("ARR Recognition Rate", f"{arr_recognition_rate:.1f}%")
             
             # Average Contract Value
-            avg_contract_value = total_contracted_arr / total_customers if total_customers > 0 else 0
-            fin_kpi_row2[2].metric("Avg Contract Value", f"${avg_contract_value:,.0f}")
+            avg_contract_value = total_arr / total_customers if total_customers > 0 else 0
+            rev_kpi_row2[2].metric("Avg Contract Value", f"${avg_contract_value:,.0f}")
             
             st.markdown("---")
             st.markdown("### 📈 Revenue Analysis")
             
             # Revenue by Geography
-            if "Geography" in current_display_df.columns and "Contracted ARR" in current_display_df.columns:
-                st.subheader("Contracted ARR by Geography")
-                geo_revenue = current_display_df.groupby("Geography", observed=True)["Contracted ARR"].sum().reset_index()
-                geo_revenue = geo_revenue.sort_values("Contracted ARR", ascending=False)
+            if "Geography" in current_display_df.columns and arr_column in current_display_df.columns:
+                st.subheader(f"{arr_column} by Geography")
+                geo_revenue = current_display_df.groupby("Geography", observed=True)[arr_column].sum().reset_index()
+                geo_revenue = geo_revenue.sort_values(arr_column, ascending=False)
                 
                 if not geo_revenue.empty:
                     fig_geo_revenue = px.bar(
                         geo_revenue, 
                         x="Geography", 
-                        y="Contracted ARR",
-                        title="Contracted ARR by Geography",
-                        color="Contracted ARR",
+                        y=arr_column,
+                        title=f"{arr_column} by Geography",
+                        color=arr_column,
                         color_continuous_scale="Viridis"
                     )
                     fig_geo_revenue.update_traces(
-                        text=geo_revenue["Contracted ARR"].apply(lambda x: f"${x:,.0f}"), 
+                        text=geo_revenue[arr_column].apply(lambda x: f"${x:,.0f}"), 
                         textposition="outside"
                     )
                     fig_geo_revenue.update_layout(height=450)
@@ -2593,26 +2965,26 @@ if not current_display_df.empty:
                     st.write("Not enough data for Geography Revenue visualization.")
             
             # Create two columns for next row of charts
-            fin_viz_row1_col1, fin_viz_row1_col2 = st.columns(2)
+            rev_viz_row1_col1, rev_viz_row1_col2 = st.columns(2)
             
-            with fin_viz_row1_col1:
+            with rev_viz_row1_col1:
                 # Customer-wise Revenue Distribution
-                if "Contracted ARR" in current_display_df.columns and "Customer Name" in current_display_df.columns:
-                    st.subheader("Top 10 Customers by Contracted ARR")
-                    revenue_by_customer = current_display_df.groupby("Customer Name", observed=True)["Contracted ARR"].sum().reset_index()
-                    revenue_by_customer = revenue_by_customer.sort_values("Contracted ARR", ascending=False).head(10)
+                if arr_column in current_display_df.columns and "Customer Name" in current_display_df.columns:
+                    st.subheader(f"Top 10 Customers by {arr_column}")
+                    revenue_by_customer = current_display_df.groupby("Customer Name", observed=True)[arr_column].sum().reset_index()
+                    revenue_by_customer = revenue_by_customer.sort_values(arr_column, ascending=False).head(10)
                     
                     if not revenue_by_customer.empty:
                         fig_customer_revenue = px.bar(
                             revenue_by_customer, 
                             x="Customer Name", 
-                            y="Contracted ARR",
-                            title="Top 10 Customers by Contracted ARR",
-                            color="Contracted ARR",
-                            color_continuous_scale="Blues"
+                            y=arr_column,
+                            title=f"Top 10 Customers by {arr_column}",
+                            color=arr_column,
+                            color_continuous_scale="Greens"
                         )
                         fig_customer_revenue.update_traces(
-                            text=revenue_by_customer["Contracted ARR"].apply(lambda x: f"${x:,.0f}"), 
+                            text=revenue_by_customer[arr_column].apply(lambda x: f"${x:,.0f}"), 
                             textposition="outside"
                         )
                         fig_customer_revenue.update_layout(
@@ -2623,122 +2995,105 @@ if not current_display_df.empty:
                     else:
                         st.write("Not enough data for Customer Revenue Distribution.")
             
-            with fin_viz_row1_col2:
-                # Revenue Distribution by Status
-                if "Contracted ARR" in current_display_df.columns and "Status (R/G/Y)" in current_display_df.columns:
-                    st.subheader("Contracted ARR by Status")
-                    revenue_by_status = current_display_df.groupby("Status (R/G/Y)", observed=True)["Contracted ARR"].sum().reset_index()
+            with rev_viz_row1_col2:
+                # Revenue Distribution by Industry Sector (since Status may not be available)
+                if arr_column in current_display_df.columns and "Industry Sector" in current_display_df.columns:
+                    st.subheader(f"{arr_column} by Industry Sector")
+                    revenue_by_industry = current_display_df.groupby("Industry Sector", observed=True)[arr_column].sum().reset_index()
                     
-                    if not revenue_by_status.empty:
-                        # Status color map
-                        status_color_map = {
-                            "Red": "#d62728", "R": "#d62728", "Amber": "#ff7f0e", 
-                            "Yellow": "#ffdd57", "Y": "#ff7f0e", "Green": "#2ca02c", 
-                            "G": "#2ca02c", "Blank": "#cccccc", "<NA>": "#cccccc", "Unknown": "#cccccc"
-                        }
-                        
-                        fig_status_revenue = px.pie(
-                            revenue_by_status, 
-                            names="Status (R/G/Y)", 
-                            values="Contracted ARR",
-                            title="Contracted ARR Distribution by Status",
-                            color="Status (R/G/Y)",
-                            color_discrete_map=status_color_map
-                        )
-                        fig_status_revenue.update_traces(textinfo="percent+label")
-                        st.plotly_chart(fig_status_revenue, use_container_width=True)
-                    else:
-                        st.write("Not enough data for Revenue by Status visualization.")
-            
-            # Create second row of visualizations
-            fin_viz_row2_col1, fin_viz_row2_col2 = st.columns(2)
-            
-            with fin_viz_row2_col1:
-                # Industry Sector Analysis
-                if "Industry Sector" in current_display_df.columns and "Contracted ARR" in current_display_df.columns:
-                    st.subheader("Contracted ARR by Industry Sector")
-                    industry_revenue = current_display_df.groupby("Industry Sector", observed=True)["Contracted ARR"].sum().reset_index()
-                    industry_revenue = industry_revenue.sort_values("Contracted ARR", ascending=False)
-                    
-                    if not industry_revenue.empty:
+                    if not revenue_by_industry.empty:
                         fig_industry_revenue = px.pie(
-                            industry_revenue, 
+                            revenue_by_industry, 
                             names="Industry Sector", 
-                            values="Contracted ARR",
-                            title="Contracted ARR by Industry Sector"
+                            values=arr_column,
+                            title=f"{arr_column} Distribution by Industry Sector"
                         )
                         fig_industry_revenue.update_traces(textinfo="percent+label")
                         st.plotly_chart(fig_industry_revenue, use_container_width=True)
                     else:
                         st.write("Not enough data for Industry Sector visualization.")
+                elif arr_column in current_display_df.columns and "Application" in current_display_df.columns:
+                    # Fallback to Application if Industry Sector not available
+                    st.subheader(f"{arr_column} by Application")
+                    revenue_by_app = current_display_df.groupby("Application", observed=True)[arr_column].sum().reset_index()
+                    
+                    if not revenue_by_app.empty:
+                        fig_app_revenue = px.pie(
+                            revenue_by_app, 
+                            names="Application", 
+                            values=arr_column,
+                            title=f"{arr_column} Distribution by Application"
+                        )
+                        fig_app_revenue.update_traces(textinfo="percent+label")
+                        st.plotly_chart(fig_app_revenue, use_container_width=True)
+                    else:
+                        st.write("Not enough data for Application visualization.")
             
-            with fin_viz_row2_col2:
-                # ARR Recognition vs Contracted Analysis
-                if "Contracted ARR" in current_display_df.columns and "Recognized ARR" in current_display_df.columns:
-                    st.subheader("ARR Recognition Analysis")
-                    
-                    # Create scatter plot showing contracted vs recognized ARR
-                    fig_arr_scatter = px.scatter(
-                        current_display_df,
-                        x="Contracted ARR",
-                        y="Recognized ARR",
-                        color="Status (R/G/Y)" if "Status (R/G/Y)" in current_display_df.columns else None,
-                        hover_data=["Customer Name"] if "Customer Name" in current_display_df.columns else None,
-                        title="Contracted vs Recognized ARR",
-                        color_discrete_map=status_color_map if "Status (R/G/Y)" in current_display_df.columns else None
-                    )
-                    
-                    # Add diagonal line to show perfect recognition
-                    max_arr = max(current_display_df["Contracted ARR"].max(), current_display_df["Recognized ARR"].max())
-                    fig_arr_scatter.add_scatter(
-                        x=[0, max_arr],
-                        y=[0, max_arr],
-                        mode="lines",
-                        name="Perfect Recognition",
-                        line=dict(dash="dash", color="gray")
-                    )
-                    
-                    fig_arr_scatter.update_layout(height=450)
-                    st.plotly_chart(fig_arr_scatter, use_container_width=True)
-                    
             # Revenue Trends Over Time (if contract dates are available)
-            if "Contract Start Date" in current_display_df.columns and "Contracted ARR" in current_display_df.columns and not current_display_df["Contract Start Date"].isnull().all():
+            if "Contract Start Date" in current_display_df.columns and arr_column in current_display_df.columns and not current_display_df["Contract Start Date"].isnull().all():
                 st.subheader("Revenue Trends Over Time")
                 
                 # Group by month and sum revenue
-                revenue_trend = current_display_df.groupby(current_display_df["Contract Start Date"].dt.to_period("M"))["Contracted ARR"].sum().reset_index()
+                revenue_trend = current_display_df.groupby(current_display_df["Contract Start Date"].dt.to_period("M"))[arr_column].sum().reset_index()
                 revenue_trend["Contract Start Date"] = revenue_trend["Contract Start Date"].dt.to_timestamp()
                 
                 if not revenue_trend.empty:
                     fig_revenue_trend = px.line(
                         revenue_trend, 
                         x="Contract Start Date", 
-                        y="Contracted ARR",
-                        title="Contracted ARR by Contract Start Date",
+                        y=arr_column,
+                        title=f"{arr_column} by Contract Start Date",
                         markers=True
                     )
                     fig_revenue_trend.update_layout(height=450)
                     st.plotly_chart(fig_revenue_trend, use_container_width=True)
                 else:
                     st.write("Not enough data for Revenue Trends visualization.")
-                    
-            # Application Analysis
-            if "Application" in current_display_df.columns and "Contracted ARR" in current_display_df.columns:
-                st.subheader("Revenue by Application")
-                app_revenue = current_display_df.groupby("Application", observed=True)["Contracted ARR"].sum().reset_index()
-                app_revenue = app_revenue.sort_values("Contracted ARR", ascending=False)
+            
+            # ARR vs Recognized ARR Analysis
+            if arr_column in current_display_df.columns and "Recognized ARR" in current_display_df.columns:
+                st.subheader("ARR Recognition Analysis")
+                
+                # Create scatter plot showing current vs recognized ARR
+                fig_arr_scatter = px.scatter(
+                    current_display_df,
+                    x=arr_column,
+                    y="Recognized ARR",
+                    color="Geography" if "Geography" in current_display_df.columns else None,
+                    hover_data=["Customer Name"] if "Customer Name" in current_display_df.columns else None,
+                    title=f"{arr_column} vs Recognized ARR"
+                )
+                
+                # Add diagonal line to show perfect recognition
+                max_arr = max(current_display_df[arr_column].max(), current_display_df["Recognized ARR"].max())
+                fig_arr_scatter.add_scatter(
+                    x=[0, max_arr],
+                    y=[0, max_arr],
+                    mode="lines",
+                    name="Perfect Recognition",
+                    line=dict(dash="dash", color="gray")
+                )
+                
+                fig_arr_scatter.update_layout(height=450)
+                st.plotly_chart(fig_arr_scatter, use_container_width=True)
+            
+            # Current ARR by Application (dedicated visualization)
+            if "Application" in current_display_df.columns and arr_column in current_display_df.columns:
+                st.subheader(f"{arr_column} by Application")
+                app_revenue = current_display_df.groupby("Application", observed=True)[arr_column].sum().reset_index()
+                app_revenue = app_revenue.sort_values(arr_column, ascending=False)
                 
                 if not app_revenue.empty:
                     fig_app_revenue = px.bar(
                         app_revenue, 
                         x="Application", 
-                        y="Contracted ARR",
-                        title="Contracted ARR by Application",
-                        color="Contracted ARR",
+                        y=arr_column,
+                        title=f"{arr_column} by Application",
+                        color=arr_column,
                         color_continuous_scale="Oranges"
                     )
                     fig_app_revenue.update_traces(
-                        text=app_revenue["Contracted ARR"].apply(lambda x: f"${x:,.0f}"), 
+                        text=app_revenue[arr_column].apply(lambda x: f"${x:,.0f}"), 
                         textposition="outside"
                     )
                     fig_app_revenue.update_layout(height=450)
@@ -2746,7 +3101,7 @@ if not current_display_df.empty:
                 else:
                     st.write("Not enough data for Application Revenue visualization.")
         else:
-            st.warning("No data loaded/matches filters to display finance information.")
+            st.warning("No data loaded/matches filters to display revenue information.")
     
     elif page == "Chat Analytics":
         st.title("💬 Enhanced Chat Analytics")
