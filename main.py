@@ -7,9 +7,14 @@ import requests
 import io
 from datetime import datetime
 
-# Import page modules
-from pages import projects_health, support_tickets, dinh_kyle_sheet, revenue, chat_analytics
-from utils import data_loader, auth_handler
+# Import page modules with error handling
+try:
+    from pages import projects_health, support_tickets, dinh_kyle_sheet, revenue, chat_analytics
+    from utils import data_loader, auth_handler
+except ImportError as e:
+    st.error(f"Import error: {e}")
+    st.error("Please ensure all required modules are present in the repository.")
+    st.stop()
 
 warnings.filterwarnings('ignore')
 
@@ -80,7 +85,10 @@ def display_sidebar_animated_gif(gif_path, width=250):
         return False
 
 # Display logo or fallback
-if not display_sidebar_animated_gif("Untitled design.gif", width=250):
+logo_path = "Untitled design.gif"
+if os.path.exists(logo_path):
+    display_sidebar_animated_gif(logo_path, width=250)
+else:
     st.sidebar.markdown(
         '<div style="text-align: center; margin-bottom: 30px; margin-top: 10px;">'
         '<h3 style="color: #1f77b4; font-family: Arial Black;">🚀 Avathon Analytics</h3>'
