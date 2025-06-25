@@ -325,4 +325,4 @@ st.write("Debug info:", st.session_state)
 
 ## 📄 License
 
-Internal use only - Avathon Analytics Dashboard © 2025 
+Internal use only - Avathon Analytics Dashboard © 2025 # Force deployment refresh Wed Jun 25 14:12:06 IST 2025
