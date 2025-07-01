@@ -63,6 +63,10 @@ st.markdown("""
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
+# Initialize session state for data source selections per page
+if "page_data_sources" not in st.session_state:
+    st.session_state.page_data_sources = {}
+
 # ------------------ SIDEBAR SETUP ------------------
 
 # Display logo at top of sidebar
@@ -108,8 +112,34 @@ auth_handler.setup_authentication_ui()
 
 # ------------------ DATA LOADING ------------------
 
-# Data source selection
-data_source = st.radio("Choose data source:", ("Use Google Sheets Data", "Upload File", "Enter URL", "Use Default File"))
+# Page-specific default data sources
+page_defaults = {
+    "Projects & Customer Health": "Use Google Sheets Data",
+    "Support Tickets": "Use Default File", 
+    "Revenue": "Use Default File",
+    "Dinh and Kyle Sheet": "Use Default File",
+    "Chat Analytics": "Use Default File"
+}
+
+# Get default for current page (use stored preference or page default)
+if page in st.session_state.page_data_sources:
+    current_default = st.session_state.page_data_sources[page]
+else:
+    current_default = page_defaults.get(page, "Use Default File")
+
+# Data source selection with page-specific default
+data_source_options = ("Use Google Sheets Data", "Upload File", "Enter URL", "Use Default File")
+default_index = data_source_options.index(current_default)
+
+data_source = st.radio(
+    f"Choose data source for {page}:", 
+    data_source_options,
+    index=default_index,
+    help=f"Default for {page}: {page_defaults.get(page, 'Use Default File')}"
+)
+
+# Store the user's selection for this page
+st.session_state.page_data_sources[page] = data_source
 
 # Load data based on selected source and page
 df, df_filtered = data_loader.load_data(data_source, page)
