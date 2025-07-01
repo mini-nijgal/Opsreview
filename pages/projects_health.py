@@ -540,6 +540,25 @@ def display_contract_analysis(current_display_df):
             contract_project_data["End_Year"] = contract_project_data["Contract End Date"].dt.year
             contract_trend_year = contract_project_data.groupby(["End_Year", "Customer Name"]).size().reset_index(name="Project_Count")
             
+            # Generate unique colors for each customer
+            unique_customers = contract_trend_year["Customer Name"].unique()
+            
+            # Combine multiple color palettes for more unique colors
+            all_colors = (
+                px.colors.qualitative.Set3 + 
+                px.colors.qualitative.Plotly + 
+                px.colors.qualitative.Pastel + 
+                px.colors.qualitative.Set1 +
+                px.colors.qualitative.Set2 +
+                px.colors.qualitative.Dark2 +
+                px.colors.qualitative.Light24
+            )
+            
+            # Create color mapping for customers
+            customer_colors = {}
+            for i, customer in enumerate(unique_customers):
+                customer_colors[customer] = all_colors[i % len(all_colors)]
+            
             fig_contracts_stacked = px.bar(
                 contract_trend_year,
                 x="End_Year",
@@ -547,7 +566,7 @@ def display_contract_analysis(current_display_df):
                 color="Customer Name",
                 title="Projects by Contract End Date (Stacked)",
                 barmode="stack",
-                color_discrete_sequence=px.colors.qualitative.Set3
+                color_discrete_map=customer_colors
             )
             
             fig_contracts_stacked.update_layout(
