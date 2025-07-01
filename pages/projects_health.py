@@ -540,24 +540,52 @@ def display_contract_analysis(current_display_df):
             contract_project_data["End_Year"] = contract_project_data["Contract End Date"].dt.year
             contract_trend_year = contract_project_data.groupby(["End_Year", "Customer Name"]).size().reset_index(name="Project_Count")
             
-            # Generate unique colors for each customer
+            # Generate truly unique colors for each customer
             unique_customers = contract_trend_year["Customer Name"].unique()
+            num_customers = len(unique_customers)
             
-            # Combine multiple color palettes for more unique colors
-            all_colors = (
-                px.colors.qualitative.Set3 + 
-                px.colors.qualitative.Plotly + 
-                px.colors.qualitative.Pastel + 
-                px.colors.qualitative.Set1 +
-                px.colors.qualitative.Set2 +
-                px.colors.qualitative.Dark2 +
-                px.colors.qualitative.Light24
-            )
+            # Create deterministic unique colors using customer name hash
+            import hashlib
+            import colorsys
             
-            # Create color mapping for customers
+            def generate_color_from_text(text, saturation=0.8, lightness=0.6):
+                """Generate a unique color based on text hash"""
+                # Create hash of the text
+                hash_obj = hashlib.md5(text.encode())
+                hash_hex = hash_obj.hexdigest()
+                
+                # Use first 6 characters of hash for hue
+                hue = int(hash_hex[:6], 16) / 16777215.0  # Normalize to 0-1
+                
+                # Convert HSV to RGB
+                rgb = colorsys.hsv_to_rgb(hue, saturation, lightness)
+                
+                # Convert to hex
+                hex_color = '#{:02x}{:02x}{:02x}'.format(
+                    int(rgb[0] * 255), 
+                    int(rgb[1] * 255), 
+                    int(rgb[2] * 255)
+                )
+                return hex_color
+            
+            # Create color mapping for customers using their names
             customer_colors = {}
-            for i, customer in enumerate(unique_customers):
-                customer_colors[customer] = all_colors[i % len(all_colors)]
+            used_colors = set()
+            
+            for customer in unique_customers:
+                base_color = generate_color_from_text(customer, 0.8, 0.6)
+                
+                # If color already used, vary saturation/lightness
+                color = base_color
+                variation = 0
+                while color in used_colors and variation < 10:
+                    variation += 1
+                    sat = 0.5 + (variation * 0.1) % 0.4  # Vary saturation 0.5-0.9
+                    light = 0.4 + (variation * 0.15) % 0.5  # Vary lightness 0.4-0.9
+                    color = generate_color_from_text(customer, sat, light)
+                
+                customer_colors[customer] = color
+                used_colors.add(color)
             
             fig_contracts_stacked = px.bar(
                 contract_trend_year,
