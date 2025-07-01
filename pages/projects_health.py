@@ -2,8 +2,6 @@ import streamlit as st
 import plotly.express as px
 import plotly.graph_objects as go
 import pandas as pd
-import base64
-import tempfile
 import os
 
 def show_page(current_display_df):
@@ -597,8 +595,7 @@ def display_contract_analysis(current_display_df):
 def display_embedded_documents():
     """Display embedded PDF documents"""
     st.markdown("---")
-    st.markdown("## 📄 Embedded Documents")
-    st.markdown("### Weekly Project Status")
+    st.markdown("## 📄 Weekly Project Status Documents")
     
     pdf_options = {
         "Weekly Project Status 7.05.2025": "Weekly%20Project%20Status%207.05.2025.pdf",
@@ -607,36 +604,57 @@ def display_embedded_documents():
     
     selected_pdf = st.selectbox("Select Weekly Status Report:", list(pdf_options.keys()))
     
-    def show_google_sheets_pdf(pdf_filename):
-        url = f"https://github.com/mini-nijgal/Opsreview/raw/main/{pdf_filename}"
-        with st.spinner("Loading PDF from GitHub..."):
-            try:
-                import requests
-                response = requests.get(url)
-                if response.status_code == 200:
-                    with tempfile.NamedTemporaryFile(delete=False, suffix='.pdf') as tmp_file:
-                        tmp_file.write(response.content)
-                        tmp_path = tmp_file.name
-                    
-                    try:
-                        with open(tmp_path, "rb") as f:
-                            base64_pdf = base64.b64encode(f.read()).decode('utf-8')
-                        st.markdown(f'<iframe src="data:application/pdf;base64,{base64_pdf}" width="100%" height="650" type="application/pdf" style="border: 1px solid #ddd;"></iframe>', unsafe_allow_html=True)
-                        
-                        with st.expander("PDF Information"):
-                            st.write(f"PDF successfully loaded: {selected_pdf}")
-                        
-                        os.unlink(tmp_path)
-                    except Exception as e:
-                        st.error(f"Error displaying PDF: {str(e)}")
-                        if os.path.exists(tmp_path):
-                            os.unlink(tmp_path)
-                else:
-                    st.error(f"Failed to retrieve PDF from GitHub. Status code: {response.status_code}")
-            except Exception as e:
-                st.error(f"Error accessing GitHub PDF: {str(e)}")
+    # GitHub raw URL for the selected PDF
+    github_url = f"https://github.com/mini-nijgal/Opsreview/raw/main/{pdf_options[selected_pdf]}"
     
-    show_google_sheets_pdf(pdf_options[selected_pdf])
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.markdown(f"### 📊 {selected_pdf}")
+        st.markdown("**View Options:**")
+        
+        # Option 1: Direct link to GitHub
+        st.markdown(f"🔗 [**Open PDF in New Tab**]({github_url})")
+        st.caption("Opens the PDF in a new browser tab (recommended)")
+        
+        # Option 2: Download button
+        try:
+            import requests
+            with st.spinner("Preparing download..."):
+                response = requests.get(github_url, timeout=10)
+                if response.status_code == 200:
+                    st.download_button(
+                        label="💾 Download PDF",
+                        data=response.content,
+                        file_name=f"{selected_pdf}.pdf",
+                        mime="application/pdf"
+                    )
+                else:
+                    st.warning(f"PDF not available (HTTP {response.status_code})")
+        except Exception as e:
+            st.warning("Download temporarily unavailable")
+    
+    with col2:
+        st.markdown("### 📋 Document Information")
+        st.info(f"""
+        **Document:** {selected_pdf}
+        
+        **Source:** GitHub Repository
+        
+        **Note:** PDFs are opened in new tabs to avoid browser security restrictions.
+        
+        **Alternative:** Use the download button to save the PDF locally.
+        """)
+    
+    # Alternative: Simple link list for all PDFs
+    st.markdown("---")
+    st.markdown("### 🗂️ All Available Reports")
+    
+    for pdf_name, pdf_file in pdf_options.items():
+        pdf_url = f"https://github.com/mini-nijgal/Opsreview/raw/main/{pdf_file}"
+        st.markdown(f"📄 [{pdf_name}]({pdf_url}) - [Download]({pdf_url})")
+    
+    st.caption("💡 **Tip:** Right-click any link and select 'Open in new tab' for the best viewing experience.")
 
 # Helper functions
 def get_executive_column(df):
