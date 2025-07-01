@@ -540,52 +540,29 @@ def display_contract_analysis(current_display_df):
             contract_project_data["End_Year"] = contract_project_data["Contract End Date"].dt.year
             contract_trend_year = contract_project_data.groupby(["End_Year", "Customer Name"]).size().reset_index(name="Project_Count")
             
-            # Generate truly unique colors for each customer
+            # Generate unique colors for each customer with extended palette
             unique_customers = contract_trend_year["Customer Name"].unique()
-            num_customers = len(unique_customers)
             
-            # Create deterministic unique colors using customer name hash
-            import hashlib
-            import colorsys
+            # Extended color palette with 50+ distinct colors
+            extended_colors = [
+                '#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd',
+                '#8c564b', '#e377c2', '#7f7f7f', '#bcbd22', '#17becf',
+                '#aec7e8', '#ffbb78', '#98df8a', '#ff9896', '#c5b0d5',
+                '#c49c94', '#f7b6d3', '#c7c7c7', '#dbdb8d', '#9edae5',
+                '#393b79', '#5254a3', '#6b6ecf', '#9c9ede', '#637939',
+                '#8ca252', '#b5cf6b', '#cedb9c', '#8c6d31', '#bd9e39',
+                '#e7ba52', '#e7cb94', '#843c39', '#ad494a', '#d6616b',
+                '#e7969c', '#7b4173', '#a55194', '#ce6dbd', '#de9ed6',
+                '#3182bd', '#6baed6', '#9ecae1', '#c6dbef', '#e6550d',
+                '#fd8d3c', '#fdae6b', '#fdd0a2', '#31a354', '#74c476',
+                '#a1d99b', '#c7e9c0', '#756bb1', '#9e9ac8', '#bcbddc',
+                '#dadaeb', '#636363', '#969696', '#bdbdbd', '#d9d9d9'
+            ]
             
-            def generate_color_from_text(text, saturation=0.8, lightness=0.6):
-                """Generate a unique color based on text hash"""
-                # Create hash of the text
-                hash_obj = hashlib.md5(text.encode())
-                hash_hex = hash_obj.hexdigest()
-                
-                # Use first 6 characters of hash for hue
-                hue = int(hash_hex[:6], 16) / 16777215.0  # Normalize to 0-1
-                
-                # Convert HSV to RGB
-                rgb = colorsys.hsv_to_rgb(hue, saturation, lightness)
-                
-                # Convert to hex
-                hex_color = '#{:02x}{:02x}{:02x}'.format(
-                    int(rgb[0] * 255), 
-                    int(rgb[1] * 255), 
-                    int(rgb[2] * 255)
-                )
-                return hex_color
-            
-            # Create color mapping for customers using their names
+            # Create color mapping ensuring unique colors
             customer_colors = {}
-            used_colors = set()
-            
-            for customer in unique_customers:
-                base_color = generate_color_from_text(customer, 0.8, 0.6)
-                
-                # If color already used, vary saturation/lightness
-                color = base_color
-                variation = 0
-                while color in used_colors and variation < 10:
-                    variation += 1
-                    sat = 0.5 + (variation * 0.1) % 0.4  # Vary saturation 0.5-0.9
-                    light = 0.4 + (variation * 0.15) % 0.5  # Vary lightness 0.4-0.9
-                    color = generate_color_from_text(customer, sat, light)
-                
-                customer_colors[customer] = color
-                used_colors.add(color)
+            for i, customer in enumerate(unique_customers):
+                customer_colors[customer] = extended_colors[i % len(extended_colors)]
             
             fig_contracts_stacked = px.bar(
                 contract_trend_year,
