@@ -540,29 +540,50 @@ def display_contract_analysis(current_display_df):
             contract_project_data["End_Year"] = contract_project_data["Contract End Date"].dt.year
             contract_trend_year = contract_project_data.groupby(["End_Year", "Customer Name"]).size().reset_index(name="Project_Count")
             
-            # Generate unique colors for each customer with extended palette
+            # Generate unique colors for each customer 
             unique_customers = contract_trend_year["Customer Name"].unique()
+            num_customers = len(unique_customers)
             
-            # Extended color palette with 50+ distinct colors
-            extended_colors = [
-                '#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd',
-                '#8c564b', '#e377c2', '#7f7f7f', '#bcbd22', '#17becf',
-                '#aec7e8', '#ffbb78', '#98df8a', '#ff9896', '#c5b0d5',
-                '#c49c94', '#f7b6d3', '#c7c7c7', '#dbdb8d', '#9edae5',
-                '#393b79', '#5254a3', '#6b6ecf', '#9c9ede', '#637939',
-                '#8ca252', '#b5cf6b', '#cedb9c', '#8c6d31', '#bd9e39',
-                '#e7ba52', '#e7cb94', '#843c39', '#ad494a', '#d6616b',
-                '#e7969c', '#7b4173', '#a55194', '#ce6dbd', '#de9ed6',
-                '#3182bd', '#6baed6', '#9ecae1', '#c6dbef', '#e6550d',
-                '#fd8d3c', '#fdae6b', '#fdd0a2', '#31a354', '#74c476',
-                '#a1d99b', '#c7e9c0', '#756bb1', '#9e9ac8', '#bcbddc',
-                '#dadaeb', '#636363', '#969696', '#bdbdbd', '#d9d9d9'
-            ]
+            # Debug info
+            st.write(f"Debug: Found {num_customers} unique customers: {list(unique_customers)}")
             
-            # Create color mapping ensuring unique colors
+            # Use plotly's built-in color sequences for guaranteed uniqueness
+            all_plotly_colors = (
+                px.colors.qualitative.Plotly + 
+                px.colors.qualitative.Set1 + 
+                px.colors.qualitative.Set2 + 
+                px.colors.qualitative.Set3 + 
+                px.colors.qualitative.Pastel + 
+                px.colors.qualitative.Dark2 + 
+                px.colors.qualitative.Light24 +
+                px.colors.qualitative.Alphabet
+            )
+            
+            # Ensure we have enough colors and they're all different
+            unique_plotly_colors = []
+            seen_colors = set()
+            for color in all_plotly_colors:
+                if color not in seen_colors:
+                    unique_plotly_colors.append(color)
+                    seen_colors.add(color)
+                if len(unique_plotly_colors) >= 100:  # More than enough
+                    break
+            
+            # Create color mapping with guaranteed uniqueness
             customer_colors = {}
             for i, customer in enumerate(unique_customers):
-                customer_colors[customer] = extended_colors[i % len(extended_colors)]
+                if i < len(unique_plotly_colors):
+                    customer_colors[customer] = unique_plotly_colors[i]
+                else:
+                    # Fallback - modify existing colors
+                    base_color = unique_plotly_colors[i % len(unique_plotly_colors)]
+                    # Add transparency to create variation
+                    customer_colors[customer] = base_color + "CC"  # Add alpha
+            
+            # Debug the color mapping
+            st.write("Debug: Color mapping:")
+            for customer, color in customer_colors.items():
+                st.write(f"  {customer}: {color}")
             
             fig_contracts_stacked = px.bar(
                 contract_trend_year,
