@@ -540,50 +540,63 @@ def display_contract_analysis(current_display_df):
             contract_project_data["End_Year"] = contract_project_data["Contract End Date"].dt.year
             contract_trend_year = contract_project_data.groupby(["End_Year", "Customer Name"]).size().reset_index(name="Project_Count")
             
-            # Generate unique colors for each customer 
+            # Generate truly distinct colors for each customer
             unique_customers = contract_trend_year["Customer Name"].unique()
             num_customers = len(unique_customers)
             
-            # Debug info
-            st.write(f"Debug: Found {num_customers} unique customers: {list(unique_customers)}")
+            # Create maximally distinct colors using HSV color space
+            def generate_distinct_colors(n):
+                """Generate n maximally distinct colors"""
+                colors = []
+                for i in range(n):
+                    # Use golden angle (137.5°) for optimal distribution
+                    hue = (i * 137.5) % 360
+                    
+                    # Vary saturation and value for additional distinction
+                    sat_level = (i % 3) + 1  # 1, 2, 3
+                    val_level = (i % 4) + 1  # 1, 2, 3, 4
+                    
+                    saturation = 0.5 + (sat_level * 0.15)  # 0.65, 0.8, 0.95
+                    value = 0.4 + (val_level * 0.15)       # 0.55, 0.7, 0.85, 1.0
+                    
+                    # Convert HSV to hex
+                    h_norm = hue / 360.0
+                    s_norm = min(saturation, 1.0)
+                    v_norm = min(value, 1.0)
+                    
+                    # Simple HSV to RGB conversion
+                    c = v_norm * s_norm
+                    x = c * (1 - abs((h_norm * 6) % 2 - 1))
+                    m = v_norm - c
+                    
+                    if h_norm < 1/6:
+                        r, g, b = c, x, 0
+                    elif h_norm < 2/6:
+                        r, g, b = x, c, 0
+                    elif h_norm < 3/6:
+                        r, g, b = 0, c, x
+                    elif h_norm < 4/6:
+                        r, g, b = 0, x, c
+                    elif h_norm < 5/6:
+                        r, g, b = x, 0, c
+                    else:
+                        r, g, b = c, 0, x
+                    
+                    r = int((r + m) * 255)
+                    g = int((g + m) * 255)
+                    b = int((b + m) * 255)
+                    
+                    colors.append(f'#{r:02x}{g:02x}{b:02x}')
+                
+                return colors
             
-            # Use plotly's built-in color sequences for guaranteed uniqueness
-            all_plotly_colors = (
-                px.colors.qualitative.Plotly + 
-                px.colors.qualitative.Set1 + 
-                px.colors.qualitative.Set2 + 
-                px.colors.qualitative.Set3 + 
-                px.colors.qualitative.Pastel + 
-                px.colors.qualitative.Dark2 + 
-                px.colors.qualitative.Light24 +
-                px.colors.qualitative.Alphabet
-            )
+            # Generate unique colors for all customers
+            distinct_colors = generate_distinct_colors(num_customers)
             
-            # Ensure we have enough colors and they're all different
-            unique_plotly_colors = []
-            seen_colors = set()
-            for color in all_plotly_colors:
-                if color not in seen_colors:
-                    unique_plotly_colors.append(color)
-                    seen_colors.add(color)
-                if len(unique_plotly_colors) >= 100:  # More than enough
-                    break
-            
-            # Create color mapping with guaranteed uniqueness
+            # Create color mapping
             customer_colors = {}
             for i, customer in enumerate(unique_customers):
-                if i < len(unique_plotly_colors):
-                    customer_colors[customer] = unique_plotly_colors[i]
-                else:
-                    # Fallback - modify existing colors
-                    base_color = unique_plotly_colors[i % len(unique_plotly_colors)]
-                    # Add transparency to create variation
-                    customer_colors[customer] = base_color + "CC"  # Add alpha
-            
-            # Debug the color mapping
-            st.write("Debug: Color mapping:")
-            for customer, color in customer_colors.items():
-                st.write(f"  {customer}: {color}")
+                customer_colors[customer] = distinct_colors[i]
             
             fig_contracts_stacked = px.bar(
                 contract_trend_year,
