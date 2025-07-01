@@ -544,59 +544,29 @@ def display_contract_analysis(current_display_df):
             unique_customers = contract_trend_year["Customer Name"].unique()
             num_customers = len(unique_customers)
             
-            # Create maximally distinct pastel colors using HSV color space
-            def generate_distinct_colors(n):
-                """Generate n maximally distinct pastel colors"""
-                colors = []
-                for i in range(n):
-                    # Use golden angle (137.5°) for optimal distribution
-                    hue = (i * 137.5) % 360
-                    
-                    # Pastel colors: lower saturation, higher lightness
-                    sat_level = (i % 3) + 1  # 1, 2, 3
-                    val_level = (i % 3) + 1  # 1, 2, 3
-                    
-                    saturation = 0.3 + (sat_level * 0.1)   # 0.4, 0.5, 0.6 (lower for pastel)
-                    value = 0.75 + (val_level * 0.08)      # 0.83, 0.91, 0.99 (higher for pastel)
-                    
-                    # Convert HSV to hex
-                    h_norm = hue / 360.0
-                    s_norm = min(saturation, 1.0)
-                    v_norm = min(value, 1.0)
-                    
-                    # Simple HSV to RGB conversion
-                    c = v_norm * s_norm
-                    x = c * (1 - abs((h_norm * 6) % 2 - 1))
-                    m = v_norm - c
-                    
-                    if h_norm < 1/6:
-                        r, g, b = c, x, 0
-                    elif h_norm < 2/6:
-                        r, g, b = x, c, 0
-                    elif h_norm < 3/6:
-                        r, g, b = 0, c, x
-                    elif h_norm < 4/6:
-                        r, g, b = 0, x, c
-                    elif h_norm < 5/6:
-                        r, g, b = x, 0, c
-                    else:
-                        r, g, b = c, 0, x
-                    
-                    r = int((r + m) * 255)
-                    g = int((g + m) * 255)
-                    b = int((b + m) * 255)
-                    
-                    colors.append(f'#{r:02x}{g:02x}{b:02x}')
-                
-                return colors
+            # Simple predefined pastel colors that work reliably
+            pastel_colors = [
+                '#FFB3BA', '#BAFFC9', '#BAE1FF', '#FFFFBA', '#FFD1BA',
+                '#E1BAFF', '#FFBAF3', '#C9FFBA', '#BABFFF', '#F3FFBA',
+                '#FFBAC9', '#BAFFE1', '#D1BAFF', '#FFF3BA', '#FFBAD1',
+                '#C9BAFF', '#F3BAFFF', '#BAFFF3', '#E1FFBA', '#FFE1BA',
+                '#BABFF3', '#F3BABA', '#BAFFC9', '#E1BAFF', '#FFFBA',
+                '#FFD1C9', '#C9FFE1', '#BAE1D1', '#F3FFE1', '#FFE1D1',
+                '#D1C9FF', '#E1F3FF', '#FFE1F3', '#C9F3BA', '#F3C9FF',
+                '#E1FFD1', '#FFD1F3', '#C9E1FF', '#F3FFD1', '#D1FFE1',
+                '#FFE1C9', '#C9D1FF', '#E1FFC9', '#FFD1E1', '#D1F3FF',
+                '#F3E1FF', '#C9FFF3', '#E1D1FF', '#FFF3E1', '#D1FFE1'
+            ]
             
-            # Generate unique colors for all customers
-            distinct_colors = generate_distinct_colors(num_customers)
-            
-            # Create color mapping
+            # Create color mapping with fallback
             customer_colors = {}
             for i, customer in enumerate(unique_customers):
-                customer_colors[customer] = distinct_colors[i]
+                if i < len(pastel_colors):
+                    customer_colors[customer] = pastel_colors[i]
+                else:
+                    # Fallback for more than 50 customers
+                    fallback_color = pastel_colors[i % len(pastel_colors)]
+                    customer_colors[customer] = fallback_color
             
             fig_contracts_stacked = px.bar(
                 contract_trend_year,
