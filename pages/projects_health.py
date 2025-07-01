@@ -597,64 +597,96 @@ def display_embedded_documents():
     st.markdown("---")
     st.markdown("## 📄 Weekly Project Status Documents")
     
-    pdf_options = {
+    # PDF information
+    pdf_files = {
         "Weekly Project Status 7.05.2025": "Weekly%20Project%20Status%207.05.2025.pdf",
         "Weekly Project Status 4June2025": "Weekly%20Project%20Status%204June2025.pdf"
     }
     
-    selected_pdf = st.selectbox("Select Weekly Status Report:", list(pdf_options.keys()))
+    # Display available documents
+    st.markdown("### 📊 Available Status Reports")
     
-    # GitHub raw URL for the selected PDF
-    github_url = f"https://github.com/mini-nijgal/Opsreview/raw/main/{pdf_options[selected_pdf]}"
+    for pdf_name, pdf_file in pdf_files.items():
+        # Create GitHub raw URL
+        github_url = f"https://github.com/mini-nijgal/Opsreview/raw/main/{pdf_file}"
+        
+        # Create a nice display for each PDF
+        with st.container():
+            col1, col2, col3 = st.columns([3, 1, 1])
+            
+            with col1:
+                st.markdown(f"**📋 {pdf_name}**")
+                st.caption("Project status report with comprehensive metrics and updates")
+            
+            with col2:
+                st.markdown(f"[🔗 **View PDF**]({github_url})")
+                
+            with col3:
+                # Simple download link as backup
+                st.markdown(f"[💾 **Download**]({github_url})")
     
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        st.markdown(f"### 📊 {selected_pdf}")
-        st.markdown("**View Options:**")
-        
-        # Option 1: Direct link to GitHub
-        st.markdown(f"🔗 [**Open PDF in New Tab**]({github_url})")
-        st.caption("Opens the PDF in a new browser tab (recommended)")
-        
-        # Option 2: Download button
-        try:
-            import requests
-            with st.spinner("Preparing download..."):
-                response = requests.get(github_url, timeout=10)
-                if response.status_code == 200:
-                    st.download_button(
-                        label="💾 Download PDF",
-                        data=response.content,
-                        file_name=f"{selected_pdf}.pdf",
-                        mime="application/pdf"
-                    )
-                else:
-                    st.warning(f"PDF not available (HTTP {response.status_code})")
-        except Exception as e:
-            st.warning("Download temporarily unavailable")
-    
-    with col2:
-        st.markdown("### 📋 Document Information")
-        st.info(f"""
-        **Document:** {selected_pdf}
-        
-        **Source:** GitHub Repository
-        
-        **Note:** PDFs are opened in new tabs to avoid browser security restrictions.
-        
-        **Alternative:** Use the download button to save the PDF locally.
-        """)
-    
-    # Alternative: Simple link list for all PDFs
+    # Instructions
     st.markdown("---")
-    st.markdown("### 🗂️ All Available Reports")
+    st.info("""
+    📌 **How to view PDFs:**
+    - Click **"View PDF"** to open in a new browser tab
+    - Click **"Download"** to save the file locally
+    - PDFs open in your browser's built-in PDF viewer
+    """)
     
-    for pdf_name, pdf_file in pdf_options.items():
-        pdf_url = f"https://github.com/mini-nijgal/Opsreview/raw/main/{pdf_file}"
-        st.markdown(f"📄 [{pdf_name}]({pdf_url}) - [Download]({pdf_url})")
+    # Alternative: Show PDF selector with direct links
+    st.markdown("### 🔍 Quick Access")
+    selected_pdf = st.selectbox(
+        "Select a report to view:",
+        list(pdf_files.keys()),
+        help="Choose a weekly status report"
+    )
     
-    st.caption("💡 **Tip:** Right-click any link and select 'Open in new tab' for the best viewing experience.")
+    if selected_pdf:
+        selected_url = f"https://github.com/mini-nijgal/Opsreview/raw/main/{pdf_files[selected_pdf]}"
+        
+        # Large, prominent buttons
+        col1, col2, col3 = st.columns([1, 1, 1])
+        
+        with col1:
+            st.markdown(f"""
+            <a href="{selected_url}" target="_blank">
+                <button style="
+                    background-color: #4CAF50;
+                    border: none;
+                    color: white;
+                    padding: 10px 20px;
+                    text-align: center;
+                    font-size: 16px;
+                    margin: 4px 2px;
+                    cursor: pointer;
+                    border-radius: 8px;
+                    width: 100%;
+                ">🔗 View {selected_pdf}</button>
+            </a>
+            """, unsafe_allow_html=True)
+        
+        with col2:
+            st.markdown(f"""
+            <a href="{selected_url}" download>
+                <button style="
+                    background-color: #2196F3;
+                    border: none;
+                    color: white;
+                    padding: 10px 20px;
+                    text-align: center;
+                    font-size: 16px;
+                    margin: 4px 2px;
+                    cursor: pointer;
+                    border-radius: 8px;
+                    width: 100%;
+                ">💾 Download PDF</button>
+            </a>
+            """, unsafe_allow_html=True)
+        
+        with col3:
+            # Show URL for debugging
+            st.code(selected_url, language=None)
 
 # Helper functions
 def get_executive_column(df):
