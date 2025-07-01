@@ -544,20 +544,20 @@ def display_contract_analysis(current_display_df):
             unique_customers = contract_trend_year["Customer Name"].unique()
             num_customers = len(unique_customers)
             
-            # Create maximally distinct colors using HSV color space
+            # Create maximally distinct pastel colors using HSV color space
             def generate_distinct_colors(n):
-                """Generate n maximally distinct colors"""
+                """Generate n maximally distinct pastel colors"""
                 colors = []
                 for i in range(n):
                     # Use golden angle (137.5°) for optimal distribution
                     hue = (i * 137.5) % 360
                     
-                    # Vary saturation and value for additional distinction
+                    # Pastel colors: lower saturation, higher lightness
                     sat_level = (i % 3) + 1  # 1, 2, 3
-                    val_level = (i % 4) + 1  # 1, 2, 3, 4
+                    val_level = (i % 3) + 1  # 1, 2, 3
                     
-                    saturation = 0.5 + (sat_level * 0.15)  # 0.65, 0.8, 0.95
-                    value = 0.4 + (val_level * 0.15)       # 0.55, 0.7, 0.85, 1.0
+                    saturation = 0.3 + (sat_level * 0.1)   # 0.4, 0.5, 0.6 (lower for pastel)
+                    value = 0.75 + (val_level * 0.08)      # 0.83, 0.91, 0.99 (higher for pastel)
                     
                     # Convert HSV to hex
                     h_norm = hue / 360.0
