@@ -12,10 +12,14 @@ if current_dir not in sys.path:
 
 # Import and run the main application
 try:
+    # Import main module
     import main
+    # The main.py file will execute automatically when imported since it contains top-level code
 except ImportError as e:
     st.error(f"Error importing main module: {e}")
     st.info("Please ensure all required files are present in the repository.")
+    st.code(f"ImportError details: {str(e)}")
 except Exception as e:
     st.error(f"Error running application: {e}")
     st.info("Please check the application logs for more details.")
+    st.code(f"Exception details: {str(e)}")
