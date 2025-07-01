@@ -1,5 +1,5 @@
 # Compatibility redirect for existing Streamlit Cloud deployments
-# This file imports and runs the new main.py structure
+# This file runs the new main.py structure directly
 
 import streamlit as st
 import sys
@@ -10,16 +10,29 @@ current_dir = os.path.dirname(os.path.abspath(__file__))
 if current_dir not in sys.path:
     sys.path.insert(0, current_dir)
 
-# Import and run the main application
+# Run the main application by executing main.py content
 try:
-    # Import main module
-    import main
-    # The main.py file will execute automatically when imported since it contains top-level code
-except ImportError as e:
-    st.error(f"Error importing main module: {e}")
-    st.info("Please ensure all required files are present in the repository.")
-    st.code(f"ImportError details: {str(e)}")
+    # Read and execute main.py content directly
+    main_file_path = os.path.join(current_dir, 'main.py')
+    
+    if os.path.exists(main_file_path):
+        with open(main_file_path, 'r', encoding='utf-8') as f:
+            main_content = f.read()
+        
+        # Execute the main.py content
+        exec(main_content)
+    else:
+        st.error("❌ main.py file not found")
+        st.info("Please ensure main.py is present in the repository.")
+        
 except Exception as e:
-    st.error(f"Error running application: {e}")
-    st.info("Please check the application logs for more details.")
-    st.code(f"Exception details: {str(e)}")
+    st.error(f"❌ Error running application: {e}")
+    st.info("📋 Error details for debugging:")
+    st.code(f"Exception: {str(e)}\nType: {type(e).__name__}")
+    
+    # Show available files for debugging
+    try:
+        files = os.listdir(current_dir)
+        st.info(f"📁 Available files: {files}")
+    except:
+        pass
