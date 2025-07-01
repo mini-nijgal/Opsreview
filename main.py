@@ -63,9 +63,74 @@ st.markdown("""
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
+# Initialize session state for authentication
+if "authenticated" not in st.session_state:
+    st.session_state.authenticated = False
+if "username" not in st.session_state:
+    st.session_state.username = ""
+
 # Initialize session state for data source selections per page
 if "page_data_sources" not in st.session_state:
     st.session_state.page_data_sources = {}
+
+# ------------------ AUTHENTICATION ------------------
+
+def show_login_page():
+    """Display login page"""
+    st.markdown(
+        '<div style="text-align: center; margin-bottom: 50px; margin-top: 50px;">'
+        '<h1 style="color: #1f77b4; font-family: Arial Black;">🚀 Avathon Service Analytics Dashboard</h1>'
+        '<p style="font-size: 18px; color: #666;">Secure Access Portal</p>'
+        '</div>',
+        unsafe_allow_html=True
+    )
+    
+    # Login form
+    col1, col2, col3 = st.columns([1, 2, 1])
+    
+    with col2:
+        with st.container():
+            st.markdown("### 🔐 Please Login to Continue")
+            
+            with st.form("login_form"):
+                username = st.text_input("👤 Username", placeholder="Enter your username")
+                password = st.text_input("🔒 Password", type="password", placeholder="Enter your password")
+                login_button = st.form_submit_button("🚀 Login", use_container_width=True)
+                
+                if login_button:
+                    # Simple authentication - you can modify these credentials
+                    valid_credentials = {
+                        "admin": "password123",
+                        "user": "user123",
+                        "demo": "demo123",
+                        "avathon": "avathon2025"
+                    }
+                    
+                    if username in valid_credentials and password == valid_credentials[username]:
+                        st.session_state.authenticated = True
+                        st.session_state.username = username
+                        st.success("✅ Login successful! Redirecting...")
+                        st.rerun()
+                    else:
+                        st.error("❌ Invalid username or password. Please try again.")
+            
+            # Show demo credentials
+           
+
+def show_logout_option():
+    """Show logout option in sidebar"""
+    st.sidebar.markdown("---")
+    st.sidebar.markdown(f"👤 **Logged in as:** {st.session_state.username}")
+    
+    if st.sidebar.button("🚪 Logout", use_container_width=True):
+        st.session_state.authenticated = False
+        st.session_state.username = ""
+        st.rerun()
+
+# Check authentication status
+if not st.session_state.authenticated:
+    show_login_page()
+    st.stop()  # Stop execution here if not authenticated
 
 # ------------------ SIDEBAR SETUP ------------------
 
@@ -106,6 +171,9 @@ page = st.sidebar.selectbox(
     "Go to",
     ("Projects & Customer Health", "Support Tickets", "Dinh and Kyle Sheet", "Revenue", "Chat Analytics")
 )
+
+# Show logout option
+show_logout_option()
 
 # Authentication and configuration sections
 auth_handler.setup_authentication_ui()
