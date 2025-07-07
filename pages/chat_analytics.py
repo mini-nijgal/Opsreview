@@ -87,30 +87,16 @@ def setup_llm_configuration():
                 )
                 st.session_state.selected_free_model = selected_model
                 
-                # Hugging Face API token (now required)
-                hf_token = st.text_input(
-                    "Hugging Face Token (Free - Required)",
-                    type="password",
-                    value=st.session_state.get('hf_token', ''),
-                    help="Get your FREE token at https://huggingface.co/settings/tokens (no payment required)"
-                )
-                
-                if st.button("Save HF Token"):
+                # Hugging Face configuration
+                try:
+                    hf_token = st.secrets["huggingface"]["token"]
+                    st.success("✅ Hugging Face token configured!")
                     st.session_state.hf_token = hf_token
-                    if hf_token:
-                        st.success("✅ Hugging Face token saved!")
-                    else:
-                        st.warning("Token required for Hugging Face models")
-                
-                if not hf_token:
-                    st.info("🔑 **Get your FREE Hugging Face token:**")
-                    st.markdown("""
-                    1. Go to [huggingface.co/settings/tokens](https://huggingface.co/settings/tokens)
-                    2. Create a free account (no payment required)
-                    3. Click "New token" → "Read" access
-                    4. Copy and paste the token above
-                    """)
-                    st.warning("⚠️ Token required - but it's completely FREE!")
+                    
+                    st.info("🤖 **Free AI Ready**: Your Hugging Face token is configured and ready to use!")
+                except Exception:
+                    st.error("❌ Hugging Face token not found in secrets configuration")
+                    st.info("🔧 **Admin Note**: Configure HF token in `.streamlit/secrets.toml`")
                 
                 st.markdown("### 💡 Free AI Benefits:")
                 st.markdown("""
@@ -291,10 +277,16 @@ def analyze_with_ai(question: str, data: pd.DataFrame) -> Tuple[str, Optional[An
     llm_provider = st.session_state.get('llm_provider')
     
     # Check if we should use Free LLM
+    hf_token_available = False
+    try:
+        hf_token_available = bool(st.secrets["huggingface"]["token"])
+    except:
+        hf_token_available = bool(st.session_state.get('hf_token'))
+    
     use_free_llm = (
         llm_provider == "Free LLM (Hugging Face)" and
         HAS_REQUESTS and
-        st.session_state.get('hf_token') and
+        hf_token_available and
         not data.empty
     )
     
@@ -320,16 +312,13 @@ def analyze_with_ai(question: str, data: pd.DataFrame) -> Tuple[str, Optional[An
         except Exception as e:
             st.warning(f"⚠️ Free LLM analysis failed: {str(e)[:100]}... Falling back to local analysis.")
             return analyze_data_locally(question, data)
-    elif llm_provider == "Free LLM (Hugging Face)" and not st.session_state.get('hf_token'):
+    elif llm_provider == "Free LLM (Hugging Face)" and not hf_token_available:
         # Free LLM selected but no token provided
         fallback_response, fallback_fig = analyze_data_locally(question, data)
         token_message = """
-🔑 **Need Hugging Face Token for AI Analysis**
+🔑 **Hugging Face Token Required**
 
-To use free AI, get your token at: https://huggingface.co/settings/tokens
-1. Create free account (no payment required)
-2. Create a "Read" token
-3. Enter it in the sidebar
+The HF token is not configured in secrets. Please contact your administrator to configure the token.
 
 For now, here's local analysis:
 
@@ -448,7 +437,12 @@ Answer:"""
     try:
         # Get model from session state
         model = st.session_state.get('selected_free_model', 'google/flan-t5-large')
-        hf_token = st.session_state.get('hf_token', '')
+        
+        # Get HF token from secrets first, then session state
+        try:
+            hf_token = st.secrets["huggingface"]["token"]
+        except:
+            hf_token = st.session_state.get('hf_token', '')
         
         # Hugging Face Inference API endpoint
         api_url = f"https://api-inference.huggingface.co/models/{model}"
@@ -458,7 +452,7 @@ Answer:"""
         if hf_token:
             headers["Authorization"] = f"Bearer {hf_token}"
         else:
-            raise Exception("Hugging Face token is required. Get a free token at https://huggingface.co/settings/tokens")
+            raise Exception("Hugging Face token is required. Please configure it in secrets or contact admin.")
         
         # Prepare payload
         payload = {
