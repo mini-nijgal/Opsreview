@@ -597,6 +597,20 @@ def display_contract_analysis(current_display_df):
                 color_discrete_map=customer_colors
             )
             
+            # Enhanced styling: Add white pattern fills and borders for better visibility
+            fig_contracts_stacked.update_traces(
+                marker=dict(
+                    line=dict(color='white', width=2),  # White borders around all bars
+                    pattern=dict(
+                        fillmode='overlay',  # Overlay pattern on color
+                        bgcolor='rgba(255,255,255,0.7)',  # Semi-transparent white background
+                        fgcolor='rgba(0,0,0,0.8)',  # Dark pattern lines
+                        size=8,  # Pattern size
+                        solidity=0.3  # Pattern density
+                    )
+                )
+            )
+            
             fig_contracts_stacked.update_layout(
                 height=500,
                 xaxis_title="Contract End Year",
