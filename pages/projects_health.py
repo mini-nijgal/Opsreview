@@ -640,8 +640,12 @@ def display_embedded_documents():
     # Display available documents
     st.markdown("### 📊 Available Status Reports")
     
+    # PDF viewer state
+    if "selected_pdf_viewer" not in st.session_state:
+        st.session_state.selected_pdf_viewer = None
+
     for pdf_name, pdf_file in pdf_files.items():
-        # Create GitHub raw URL
+        # Create GitHub raw URL for download
         github_url = f"https://github.com/mini-nijgal/Opsreview/raw/main/{pdf_file}"
         
         # Create a nice display for each PDF
@@ -653,19 +657,67 @@ def display_embedded_documents():
                 st.caption("Project status report with comprehensive metrics and updates")
             
             with col2:
-                st.markdown(f"[🔗 **View PDF**]({github_url})")
+                # View PDF button that embeds inline
+                if st.button(f"🔗 View PDF", key=f"view_{pdf_name}", use_container_width=True):
+                    st.session_state.selected_pdf_viewer = (pdf_name, github_url)
+                    st.rerun()
                 
             with col3:
-                # Simple download link as backup
+                # Download link
                 st.markdown(f"[💾 **Download**]({github_url})")
+    
+    # Display embedded PDF viewer if selected
+    if st.session_state.selected_pdf_viewer:
+        pdf_name, pdf_url = st.session_state.selected_pdf_viewer
+        
+        st.markdown("---")
+        col1, col2 = st.columns([4, 1])
+        
+        with col1:
+            st.markdown(f"### 📖 Viewing: {pdf_name}")
+        
+        with col2:
+            if st.button("❌ Close Viewer", use_container_width=True):
+                st.session_state.selected_pdf_viewer = None
+                st.rerun()
+        
+        # Embed PDF using Google Docs viewer
+        viewer_url = f"https://docs.google.com/viewer?url={pdf_url}&embedded=true"
+        
+        st.markdown(f"""
+        <div style="border: 1px solid #ddd; border-radius: 10px; overflow: hidden; margin: 10px 0;">
+            <iframe src="{viewer_url}" 
+                    width="100%" 
+                    height="600" 
+                    style="border: none;">
+                <p>Your browser does not support iframes. 
+                   <a href="{pdf_url}" target="_blank">Click here to view the PDF</a>
+                </p>
+            </iframe>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        # Alternative viewing options
+        st.markdown("**Alternative viewing options:**")
+        col1, col2, col3 = st.columns(3)
+        
+        with col1:
+            st.markdown(f"[🔗 **Open in New Tab**]({pdf_url})")
+        
+        with col2:
+            st.markdown(f"[📱 **Mobile View**](https://docs.google.com/viewer?url={pdf_url})")
+            
+        with col3:
+            st.markdown(f"[💾 **Download PDF**]({pdf_url})")
     
     # Instructions
     st.markdown("---")
     st.info("""
     📌 **How to view PDFs:**
-    - Click **"View PDF"** to open in a new browser tab
-    - Click **"Download"** to save the file locally
-    - PDFs open in your browser's built-in PDF viewer
+    - Click **"🔗 View PDF"** to open inline viewer below (no popup!)
+    - Click **"💾 Download"** to save the file locally
+    - Use **"❌ Close Viewer"** to hide the embedded PDF
+    - Alternative viewing options provided when PDF is open
     """)
     
     # Alternative: Show PDF selector with direct links
@@ -683,22 +735,10 @@ def display_embedded_documents():
         col1, col2, col3 = st.columns([1, 1, 1])
         
         with col1:
-            st.markdown(f"""
-            <a href="{selected_url}" target="_blank">
-                <button style="
-                    background-color: #4CAF50;
-                    border: none;
-                    color: white;
-                    padding: 10px 20px;
-                    text-align: center;
-                    font-size: 16px;
-                    margin: 4px 2px;
-                    cursor: pointer;
-                    border-radius: 8px;
-                    width: 100%;
-                ">🔗 View {selected_pdf}</button>
-            </a>
-            """, unsafe_allow_html=True)
+            # Use the same embedded viewer for consistency
+            if st.button(f"🔗 View {selected_pdf}", key="quick_view", use_container_width=True):
+                st.session_state.selected_pdf_viewer = (selected_pdf, selected_url)
+                st.rerun()
         
         with col2:
             st.markdown(f"""
