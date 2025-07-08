@@ -538,78 +538,54 @@ def display_contract_analysis(current_display_df):
             contract_project_data["End_Year"] = contract_project_data["Contract End Date"].dt.year
             contract_trend_year = contract_project_data.groupby(["End_Year", "Customer Name"]).size().reset_index(name="Project_Count")
             
-            # Smart color differentiation: Start with pastels, add patterns only when needed
+            # Maximize pastel colors, then add patterns on top when cycling through
             unique_customers = contract_trend_year["Customer Name"].unique()
             num_customers = len(unique_customers)
             
-            # Beautiful pastel color palette (human-distinct)
+            # Extended beautiful pastel color palette (maximize unique pastels)
             pastel_colors = [
-                '#FFB3BA', '#BAFFC9', '#BAE1FF', '#FFFFBA', '#FFD1BA',  # Very distinct pastels
-                '#E1BAFF', '#FFBAF3', '#C9FFBA', '#BABFFF', '#F3FFBA',  # More distinct pastels
-                '#FFBAC9', '#BAFFE1', '#D1BAFF', '#FFF3BA', '#FFBAD1',  # Even more variety
-                '#C9BAFF', '#F3BAFF', '#BAFFF3', '#E1FFBA', '#FFE1BA',  # Continue distinct
-                '#FF9999', '#99FFCC', '#99CCFF', '#FFFF99', '#FFCC99',  # Slightly deeper pastels
-                '#CC99FF', '#FF99F0', '#99FF99', '#9999FF', '#F0FF99',  # More saturation
-                '#FF99CC', '#99FFE1', '#D199FF', '#FFF099', '#FF99D1',  # Final distinct set
+                # First tier - very distinct pastels
+                '#FFB3BA', '#BAFFC9', '#BAE1FF', '#FFFFBA', '#FFD1BA',
+                '#E1BAFF', '#FFBAF3', '#C9FFBA', '#BABFFF', '#F3FFBA',
+                '#FFBAC9', '#BAFFE1', '#D1BAFF', '#FFF3BA', '#FFBAD1',
+                '#C9BAFF', '#F3BAFF', '#BAFFF3', '#E1FFBA', '#FFE1BA',
+                
+                # Second tier - more distinct pastels
+                '#FFB3D1', '#B3FFC9', '#B3E1FF', '#FFFB3A', '#FFD1B3',
+                '#E1B3FF', '#FFB3F0', '#C9FFB3', '#B3B3FF', '#F0FFB3',
+                '#FFB3C0', '#B3FFE1', '#D1B3FF', '#FFF0B3', '#FFB3D0',
+                
+                # Third tier - expanded palette
+                '#FFD4E5', '#D4FFE5', '#D4E5FF', '#FFFFD4', '#FFE5D4',
+                '#E5D4FF', '#FFD4F5', '#E5FFD4', '#D4D4FF', '#F5FFD4',
+                '#FFD4DB', '#D4FFDB', '#DBD4FF', '#FFFBD4', '#FFD4F0',
+                
+                # Fourth tier - light tints
+                '#FFCCE5', '#CCFFE5', '#CCE5FF', '#FFFFCC', '#FFE5CC',
+                '#E5CCFF', '#FFCCF5', '#E5FFCC', '#CCCCFF', '#F5FFCC'
             ]
             
-            # Professional, subtle patterns (only when needed)
-            subtle_patterns = ["", ".", "/", "\\", "|"]  # Start with solid, then minimal patterns
+            # Clean, professional patterns for when we cycle through colors
+            patterns = ["", ".", "/", "\\", "|", "+", "x"]  # Solid first, then patterns
             
-            def color_similarity(color1, color2):
-                """Calculate if two colors are too similar to human perception"""
-                import colorsys
-                
-                # Convert hex to RGB
-                def hex_to_rgb(hex_color):
-                    hex_color = hex_color.lstrip('#')
-                    return tuple(int(hex_color[i:i+2], 16) for i in (0, 2, 4))
-                
-                rgb1 = hex_to_rgb(color1)
-                rgb2 = hex_to_rgb(color2)
-                
-                # Convert to HSV for better perceptual comparison
-                hsv1 = colorsys.rgb_to_hsv(rgb1[0]/255, rgb1[1]/255, rgb1[2]/255)
-                hsv2 = colorsys.rgb_to_hsv(rgb2[0]/255, rgb2[1]/255, rgb2[2]/255)
-                
-                # Check if colors are too similar (hue difference < 0.1 or very close in all dimensions)
-                hue_diff = abs(hsv1[0] - hsv2[0])
-                sat_diff = abs(hsv1[1] - hsv2[1])
-                val_diff = abs(hsv1[2] - hsv2[2])
-                
-                return (hue_diff < 0.1 and sat_diff < 0.3) or (hue_diff < 0.05)
-            
-            # Smart color and pattern assignment
+            # Smart assignment: use all pastels first, then add patterns on top
             customer_colors = {}
             customer_patterns = {}
-            assigned_colors = []
             
             for i, customer in enumerate(unique_customers):
-                # Try to assign a pastel color first
+                # Assign pastel color (cycle through the full palette)
+                color_index = i % len(pastel_colors)
+                customer_colors[customer] = pastel_colors[color_index]
+                
+                # Assign pattern: solid for first round, then patterns for subsequent rounds
                 if i < len(pastel_colors):
-                    proposed_color = pastel_colors[i]
-                else:
-                    # Cycle through colors for many customers
-                    proposed_color = pastel_colors[i % len(pastel_colors)]
-                
-                # Check if this color is too similar to already assigned colors
-                needs_pattern = False
-                for assigned_color in assigned_colors:
-                    if color_similarity(proposed_color, assigned_color):
-                        needs_pattern = True
-                        break
-                
-                # Assign color and pattern
-                customer_colors[customer] = proposed_color
-                assigned_colors.append(proposed_color)
-                
-                if needs_pattern:
-                    # Use pattern for similar colors (skip solid "")
-                    pattern_index = (len([c for c in customer_patterns.values() if c != ""]) % (len(subtle_patterns) - 1)) + 1
-                    customer_patterns[customer] = subtle_patterns[pattern_index]
-                else:
-                    # Use solid color (no pattern)
+                    # First round through colors - all solid
                     customer_patterns[customer] = ""
+                else:
+                    # Second+ round through colors - add patterns
+                    pattern_round = i // len(pastel_colors)
+                    pattern_index = (pattern_round % (len(patterns) - 1)) + 1  # Skip solid pattern ""
+                    customer_patterns[customer] = patterns[pattern_index]
             
             # Add pattern column to dataframe
             contract_trend_year['Pattern'] = contract_trend_year['Customer Name'].map(customer_patterns)
