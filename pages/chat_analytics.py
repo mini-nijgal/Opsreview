@@ -88,15 +88,24 @@ def setup_llm_configuration():
                 st.session_state.selected_free_model = selected_model
                 
                 # Hugging Face configuration
+                hf_token = None
                 try:
+                    # Try secrets first
                     hf_token = st.secrets["huggingface"]["token"]
-                    st.success("✅ Hugging Face token configured!")
+                    st.success("✅ Hugging Face token configured from secrets!")
+                except:
+                    # Fallback to environment variable
+                    import os
+                    hf_token = os.getenv("HF_TOKEN")
+                    if hf_token:
+                        st.success("✅ Hugging Face token configured from environment!")
+                    else:
+                        st.error("❌ Hugging Face token not found")
+                        st.info("🔧 **Admin Note**: Configure HF token in Streamlit Cloud Secrets or environment variable")
+                
+                if hf_token:
                     st.session_state.hf_token = hf_token
-                    
                     st.info("🤖 **Free AI Ready**: Your Hugging Face token is configured and ready to use!")
-                except Exception:
-                    st.error("❌ Hugging Face token not found in secrets configuration")
-                    st.info("🔧 **Admin Note**: Configure HF token in `.streamlit/secrets.toml`")
                 
                 st.markdown("### 💡 Free AI Benefits:")
                 st.markdown("""
@@ -281,7 +290,8 @@ def analyze_with_ai(question: str, data: pd.DataFrame) -> Tuple[str, Optional[An
     try:
         hf_token_available = bool(st.secrets["huggingface"]["token"])
     except:
-        hf_token_available = bool(st.session_state.get('hf_token'))
+        import os
+        hf_token_available = bool(st.session_state.get('hf_token')) or bool(os.getenv("HF_TOKEN"))
     
     use_free_llm = (
         llm_provider == "Free LLM (Hugging Face)" and
@@ -438,11 +448,12 @@ Answer:"""
         # Get model from session state
         model = st.session_state.get('selected_free_model', 'google/flan-t5-large')
         
-        # Get HF token from secrets first, then session state
+        # Get HF token from secrets first, then session state, then environment
         try:
             hf_token = st.secrets["huggingface"]["token"]
         except:
-            hf_token = st.session_state.get('hf_token', '')
+            import os
+            hf_token = st.session_state.get('hf_token', '') or os.getenv("HF_TOKEN", '')
         
         # Hugging Face Inference API endpoint
         api_url = f"https://api-inference.huggingface.co/models/{model}"
