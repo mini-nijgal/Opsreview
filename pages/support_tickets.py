@@ -259,8 +259,8 @@ def display_google_sheets_iframe():
     st.markdown("---")
     st.subheader("📋 Live Tickets Data from Google Sheets")
     
-    # Embed Google Sheets Tickets tab - using GID for second tab (Tickets)
-    google_sheets_url = "https://docs.google.com/spreadsheets/d/1Nxvj1LRWYIw3cQcX2Qz9RJmvv17JlCe-V8G2tmvqHfE/edit#gid=1"
+    # Embed Google Sheets Tickets tab - updated URL
+    google_sheets_url = "https://docs.google.com/spreadsheets/d/1EXephHztcb8-vrqGSiqiVH2ieibbSRraiSwohw8sic4/edit?usp=sharing"
     
     st.components.v1.iframe(
         src=google_sheets_url,
