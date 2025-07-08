@@ -538,40 +538,54 @@ def display_contract_analysis(current_display_df):
             contract_project_data["End_Year"] = contract_project_data["Contract End Date"].dt.year
             contract_trend_year = contract_project_data.groupby(["End_Year", "Customer Name"]).size().reset_index(name="Project_Count")
             
-            # Generate truly distinct colors for each customer
+            # Generate vibrant, distinct colors with patterns for each customer
             unique_customers = contract_trend_year["Customer Name"].unique()
             num_customers = len(unique_customers)
             
-            # Simple predefined pastel colors that work reliably
-            pastel_colors = [
-                '#FFB3BA', '#BAFFC9', '#BAE1FF', '#FFFFBA', '#FFD1BA',
-                '#E1BAFF', '#FFBAF3', '#C9FFBA', '#BABFFF', '#F3FFBA',
-                '#FFBAC9', '#BAFFE1', '#D1BAFF', '#FFF3BA', '#FFBAD1',
-                '#C9BAFF', '#F3BAFF', '#BAFFF3', '#E1FFBA', '#FFE1BA',
-                '#BABFF3', '#F3BABA', '#BAFFC9', '#E1BAFF', '#FFFFBA',
-                '#FFD1C9', '#C9FFE1', '#BAE1D1', '#F3FFE1', '#FFE1D1',
-                '#D1C9FF', '#E1F3FF', '#FFE1F3', '#C9F3BA', '#F3C9FF',
-                '#E1FFD1', '#FFD1F3', '#C9E1FF', '#F3FFD1', '#D1FFE1',
-                '#FFE1C9', '#C9D1FF', '#E1FFC9', '#FFD1E1', '#D1F3FF',
-                '#F3E1FF', '#C9FFF3', '#E1D1FF', '#FFF3E1', '#D1FFE1'
+            # Enhanced color palette with vibrant, distinct colors
+            vibrant_colors = [
+                '#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7',
+                '#DDA0DD', '#98D8C8', '#F7DC6F', '#BB8FCE', '#85C1E9',
+                '#F8C471', '#82E0AA', '#F1948A', '#85C1E9', '#F4D03F',
+                '#D7BDE2', '#A3E4D7', '#FAD7A0', '#AED6F1', '#A9DFBF',
+                '#F9E79F', '#D5A6BD', '#A2D9CE', '#F5B7B1', '#AED6F1',
+                '#F7DC6F', '#D2B4DE', '#7FB3D3', '#F8C471', '#A9CCE3',
+                '#FAD7A0', '#D1F2EB', '#FADBD8', '#D6EAF8', '#E8F8F5',
+                '#FEF9E7', '#F4ECF7', '#EBF5FB', '#FDF2E9', '#E8F6F3',
+                '#FEF5E7', '#F8F9FA', '#EAEDED', '#F7F9FC', '#FDFEFE',
+                '#FFF8DC', '#F0F8FF', '#F5FFFA', '#FFFACD', '#FFE4E1'
             ]
             
-            # Create color mapping with fallback
+            # Pattern options for better differentiation
+            pattern_shapes = [
+                "", "/", "\\", "|", "-", "+", "x", ".", "*"
+            ]
+            
+            # Create enhanced color and pattern mapping
             customer_colors = {}
+            customer_patterns = {}
+            
             for i, customer in enumerate(unique_customers):
-                if i < len(pastel_colors):
-                    customer_colors[customer] = pastel_colors[i]
+                # Assign color
+                if i < len(vibrant_colors):
+                    customer_colors[customer] = vibrant_colors[i]
                 else:
-                    # Fallback for more than 50 customers
-                    fallback_color = pastel_colors[i % len(pastel_colors)]
-                    customer_colors[customer] = fallback_color
+                    # Cycle through colors for more customers
+                    customer_colors[customer] = vibrant_colors[i % len(vibrant_colors)]
+                
+                # Assign pattern for additional differentiation
+                customer_patterns[customer] = pattern_shapes[i % len(pattern_shapes)]
+            
+            # Add pattern column to dataframe
+            contract_trend_year['Pattern'] = contract_trend_year['Customer Name'].map(customer_patterns)
             
             fig_contracts_stacked = px.bar(
                 contract_trend_year,
                 x="End_Year",
                 y="Project_Count", 
                 color="Customer Name",
-                title="Projects by Contract End Date (Stacked)",
+                pattern_shape="Pattern",
+                title="🎯 Projects by Contract End Date (Stacked)",
                 barmode="stack",
                 color_discrete_map=customer_colors
             )

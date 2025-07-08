@@ -118,19 +118,35 @@ def show_login_page():
            
 
 def show_logout_option():
-    """Show logout option in sidebar"""
-    st.sidebar.markdown("---")
-    st.sidebar.markdown(f"👤 **Logged in as:** {st.session_state.username}")
-    
-    if st.sidebar.button("🚪 Logout", use_container_width=True):
-        st.session_state.authenticated = False
-        st.session_state.username = ""
-        st.rerun()
+    """Show logout option in the top right corner"""
+    # Create container for top-right positioning
+    with st.container():
+        # Use columns to push content to the right
+        col1, col2, col3 = st.columns([3, 1, 1])
+        
+        with col3:
+            # User info in a compact format
+            st.markdown(f"""
+            <div style="text-align: right; padding: 10px; background-color: rgba(255,255,255,0.1); 
+                        border-radius: 10px; margin-bottom: 10px;">
+                <small>👤 <strong>{st.session_state.username}</strong></small>
+            </div>
+            """, unsafe_allow_html=True)
+            
+            # Logout button styled
+            if st.button("🚪 Logout", key="logout_btn", use_container_width=True, 
+                        help="Sign out of the dashboard"):
+                st.session_state.authenticated = False
+                st.session_state.username = ""
+                st.rerun()
 
 # Check authentication status
 if not st.session_state.authenticated:
     show_login_page()
     st.stop()  # Stop execution here if not authenticated
+
+# Show logout option in top right corner
+show_logout_option()
 
 # ------------------ SIDEBAR SETUP ------------------
 
@@ -171,9 +187,6 @@ page = st.sidebar.selectbox(
     "Go to",
     ("Projects & Customer Health", "Support Tickets", "Dinh and Kyle Sheet", "Revenue", "Chat Analytics")
 )
-
-# Show logout option
-show_logout_option()
 
 # Authentication and configuration sections
 auth_handler.setup_authentication_ui()
