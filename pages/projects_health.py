@@ -542,27 +542,23 @@ def display_contract_analysis(current_display_df):
             unique_customers = contract_trend_year["Customer Name"].unique()
             num_customers = len(unique_customers)
             
-            # Extended beautiful pastel color palette (maximize unique pastels)
+            # Beautiful distinct pastel colors (optimized for 15 unique solids)
             pastel_colors = [
-                # First tier - very distinct pastels
-                '#FFB3BA', '#BAFFC9', '#BAE1FF', '#FFFFBA', '#FFD1BA',
-                '#E1BAFF', '#FFBAF3', '#C9FFBA', '#BABFFF', '#F3FFBA',
-                '#FFBAC9', '#BAFFE1', '#D1BAFF', '#FFF3BA', '#FFBAD1',
-                '#C9BAFF', '#F3BAFF', '#BAFFF3', '#E1FFBA', '#FFE1BA',
-                
-                # Second tier - more distinct pastels
-                '#FFB3D1', '#B3FFC9', '#B3E1FF', '#FFFB3A', '#FFD1B3',
-                '#E1B3FF', '#FFB3F0', '#C9FFB3', '#B3B3FF', '#F0FFB3',
-                '#FFB3C0', '#B3FFE1', '#D1B3FF', '#FFF0B3', '#FFB3D0',
-                
-                # Third tier - expanded palette
-                '#FFD4E5', '#D4FFE5', '#D4E5FF', '#FFFFD4', '#FFE5D4',
-                '#E5D4FF', '#FFD4F5', '#E5FFD4', '#D4D4FF', '#F5FFD4',
-                '#FFD4DB', '#D4FFDB', '#DBD4FF', '#FFFBD4', '#FFD4F0',
-                
-                # Fourth tier - light tints
-                '#FFCCE5', '#CCFFE5', '#CCE5FF', '#FFFFCC', '#FFE5CC',
-                '#E5CCFF', '#FFCCF5', '#E5FFCC', '#CCCCFF', '#F5FFCC'
+                '#FFB3BA',  # Light pink
+                '#BAFFC9',  # Light mint green  
+                '#BAE1FF',  # Light sky blue
+                '#FFFFBA',  # Light yellow
+                '#FFD1BA',  # Light peach
+                '#E1BAFF',  # Light lavender
+                '#FFBAF3',  # Light magenta
+                '#C9FFBA',  # Light lime
+                '#BABFFF',  # Light periwinkle
+                '#F3FFBA',  # Light cream
+                '#FFBAC9',  # Light coral
+                '#BAFFE1',  # Light aqua
+                '#D1BAFF',  # Light purple
+                '#FFF3BA',  # Light lemon
+                '#FFBAD1'   # Light rose
             ]
             
             # Clean, professional patterns for when we cycle through colors
@@ -577,13 +573,13 @@ def display_contract_analysis(current_display_df):
                 color_index = i % len(pastel_colors)
                 customer_colors[customer] = pastel_colors[color_index]
                 
-                # Assign pattern: solid for first round, then patterns for subsequent rounds
-                if i < len(pastel_colors):
-                    # First round through colors - all solid
+                # Assign pattern: solid for first 15, then patterns for 16+
+                if i < 15:
+                    # First 15 customers - all solid pastels
                     customer_patterns[customer] = ""
                 else:
-                    # Second+ round through colors - add patterns
-                    pattern_round = i // len(pastel_colors)
+                    # Customer 16+ - cycle through pastels with patterns
+                    pattern_round = (i - 15) // len(pastel_colors)
                     pattern_index = (pattern_round % (len(patterns) - 1)) + 1  # Skip solid pattern ""
                     customer_patterns[customer] = patterns[pattern_index]
             
